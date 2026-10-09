@@ -180,7 +180,10 @@ class Names:
             self._refresh()
             with db() as c:
                 lan = {r["ip"]: r["name"] for r in c.execute("SELECT ip, name FROM names")}
-            names = {**lan, "127.0.0.1": "horae", "::1": "horae", **self.tailnet}
+                hw = {r["ip"]: (r["mac"], r["vendor"]) for r in c.execute("SELECT ip, mac, vendor FROM devices")}
+            # Fallback for devices that never send a name: maker + end of the hardware address, e.g. "TP-Link ·e3:20".
+            names = {ip: f"{short_vendor(v) or 'Device'} ·{m[-5:]}" for ip, (m, v) in hw.items()}
+            names.update({**lan, "127.0.0.1": "horae", "::1": "horae", **self.tailnet})
             try:
                 overrides = json.loads(NAMES_FILE.read_text())
             except FileNotFoundError:
@@ -188,11 +191,14 @@ class Names:
             except Exception as e:
                 log.warning("bad %s: %s", NAMES_FILE, e)
                 overrides = {}
-            # Keys are IPs, or router hostnames (case-insensitive) for devices without a fixed address.
-            by_host = {k.lower(): v for k, v in overrides.items()}
+            # Keys are IPs, hardware (MAC) addresses, or router hostnames (case-insensitive) for devices without a fixed IP.
+            by_key = {k.lower(): v for k, v in overrides.items()}
             for ip, host in lan.items():
-                if host.lower() in by_host:
-                    names[ip] = by_host[host.lower()]
+                if host.lower() in by_key:
+                    names[ip] = by_key[host.lower()]
+            for ip, (mac, _) in hw.items():
+                if mac and mac.lower() in by_key:
+                    names[ip] = by_key[mac.lower()]
             names.update(overrides)
             return names
 
@@ -220,6 +226,7 @@ def init_db():
             CREATE INDEX IF NOT EXISTS q_base_t ON q(base, t);
             CREATE INDEX IF NOT EXISTS q_client_t ON q(client, t);
             CREATE TABLE IF NOT EXISTS names (ip TEXT PRIMARY KEY, name TEXT, t REAL);
+            CREATE TABLE IF NOT EXISTS devices (ip TEXT PRIMARY KEY, mac TEXT, vendor TEXT, t REAL);
         """)
 
 
@@ -260,9 +267,38 @@ def sync_once(ph):
     return len(rows)
 
 
+def sync_devices(ph):
+    """Pi-hole's network table: which hardware address and maker sits behind each IP."""
+    now, rows = time.time(), []
+    for d in ph.call("GET", "/network/devices?max_devices=500&max_addresses=8").get("devices", []):
+        mac = (d.get("hwaddr") or "").lower()
+        if not re.match(r"^([0-9a-f]{2}:){5}[0-9a-f]{2}$", mac):
+            continue
+        for a in d.get("ips", []):
+            if a.get("ip"):
+                rows.append((a["ip"], mac, d.get("macVendor") or "", now))
+    with db() as c:
+        c.executemany("INSERT OR REPLACE INTO devices VALUES (?,?,?,?)", rows)
+
+
+VENDOR_TRIM = re.compile(r"[,.]?\s+(inc|corp|corporation|corporate|co|ltd|limited|llc|gmbh|pte|systems|technology|technologies|electronics|international)\b.*$", re.I)
+
+
+def short_vendor(v):
+    """'TP-Link Systems Inc' -> 'TP-Link', 'Espressif Inc.' -> 'Espressif'. Pi-hole says 'Private' for hidden makers."""
+    v = (v or "").strip()
+    if not v or v.lower() == "private":
+        return ""
+    return " ".join(VENDOR_TRIM.sub("", v).split()[:2]).rstrip(",.")
+
+
 def sync_loop(ph):
+    last_devices = 0
     while True:
         try:
+            if time.time() - last_devices > 300:
+                sync_devices(ph)
+                last_devices = time.time()
             n = sync_once(ph)
             STATE.update(last_sync=time.time(), last_error=None)
             STATE["synced_rows"] += n
