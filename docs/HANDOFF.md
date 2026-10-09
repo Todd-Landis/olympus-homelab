@@ -9,11 +9,11 @@ history, current state, open items, and the traps already hit.
 
 | Name | Tailscale IP | LAN | Notes |
 |---|---|---|---|
-| helios | 100.88.170.59 | 192.168.1.129 (Wi-Fi) | Ubuntu laptop server. Also runs `/opt/ai-stack` (NOT in this repo; see `~/handoff/HANDOFF.md` on helios) |
-| horae | 100.123.23.100 | 192.168.1.224 (reserved in router) | Raspberry Pi 4, Pi OS Lite (trixie, cloud-init). Renamed from `pihub` |
-| hephaestus | 100.102.134.107 | | Tower, dual boot; only a server in Ubuntu. Usually offline |
-| desktop-ajq2ikv | 100.73.62.100 | 192.168.1.140 | Todd's Windows laptop (this PC) |
-| iphone181 | 100.110.215.44 | 192.168.1.154 | Todd's iPhone |
+| helios | 100.88.170.59 | 192.168.50.3 (reserved, Wi-Fi 5016Shoreside) | Ubuntu laptop server. Also runs `/opt/ai-stack` (NOT in this repo; see `~/handoff/HANDOFF.md` on helios) |
+| horae | 100.123.23.100 | 192.168.50.2 (reserved, Ethernet) | Raspberry Pi 4, Pi OS Lite (trixie, cloud-init). Renamed from `pihub` |
+| hephaestus | 100.102.134.107 | 192.168.50.5 (reserved, Wi-Fi 5016Shoreside) | Tower, dual boot; only a server in Ubuntu. Olympus agent installed |
+| desktop-ajq2ikv | 100.73.62.100 | automatic | Todd's Windows laptop (this PC) |
+| iphone181 | 100.110.215.44 | automatic | Todd's iPhone |
 
 **Running services**
 
@@ -21,19 +21,18 @@ history, current state, open items, and the traps already hit.
   network), Homepage (`:80`). Tailscale on, Tailscale SSH off, `--accept-dns=false`.
 - **helios** `~/pihole-watch` ("Network", http://helios:8095): Python stdlib app, syncs Pi-hole `/api/queries` every 5 s into
   SQLite (`data/watch.db`, 30-day retention), block/unblock via Pi-hole API. Auth = Pi-hole **app password** in
-  `~/pihole-watch/pihole.secret` (600). Device names: Tailscale local API + `data/names.json`.
+  `~/pihole-watch/pihole.secret` (600). Device names: `data/names.json` (keys = IPs or router hostnames) > Tailscale > Pi-hole/router names.
 - **helios** `~/olympus` (http://helios/, port 80 on Tailscale IP): hub polls agents (5 s stats, 10 s containers), checks services
   (20 s), widgets (Network summary, Ollama). Agents on helios and horae (`~/olympus-agent`) listen on `:9101` and only answer
   `100.88.170.59`. Restart/stop/start and logs work through the agent. No login on Olympus or Network.
 
-**DNS / network state**
+**DNS / network state** (full details: `docs/NETWORK.md`)
 
-- Spectrum router (app-managed, can't set LAN DHCP DNS: its "DNS server" fields are the router's own upstream). Pointing them at
-  the Pi broke all DNS. Todd set primary back to 192.168.1.1; advice was to use 1.1.1.1 / 1.0.0.1 instead (not confirmed done).
-- iPhone: manual DNS 192.168.1.224 on home Wi-Fi.
+- ASUS RT-BE58U on 192.168.50.0/24 hands out Pi-hole (`192.168.50.2`) as the only DNS, so every LAN device (IoT too) uses it.
+  Pi-hole names LAN clients via conditional forwarding to the ASUS. Port forwards: UDP 7777 + 8888 to helios (Dragonwilds).
 - Tailscale admin DNS: global nameserver `100.123.23.100` with **Override DNS servers on**, so every tailnet device uses Pi-hole
   while Tailscale is connected.
-- Pi-hole runs with host networking so each client shows by its real IP (LAN 192.168.1.x or Tailscale 100.x).
+- Pi-hole runs with host networking so each client shows by its real IP (LAN 192.168.50.x or Tailscale 100.x).
   `172.18.0.1` in old history = Tailscale traffic from before that fix.
 
 **Design** (`suite/`): light only, warm off-white, Inter, Fraunces only for the "Olympus" wordmark, plain labels, thin borders,
@@ -43,10 +42,8 @@ art project; keep it subtle, modern and readable. No dark mode.
 
 ## Open items (Todd's to-do list)
 
-1. **ASUS RT-BE58U router** ordered, replaces the Spectrum router. Plan: same SSID/password/WPA2+WPA3 mixed; set LAN IP to
-   `192.168.1.1` so the subnet stays; reserve `88:a2:9e:6f:6f:45` -> `192.168.1.224`; LAN > DHCP Server DNS = `192.168.1.224`;
-   point IPv6 DNS at the Pi (or disable it); leave ASUS's built-in AdGuard DNS **off**. Then set the iPhone DNS back to Automatic
-   and check new device IPs in `names.json`.
+1. **ASUS router move** (done 2026-10-09, see `docs/NETWORK.md`). Left: switch this PC (and todd-desktop) to 5016Shoreside and
+   set it **Private**; check the iPhone's Configure DNS is Automatic; confirm Dragonwilds is joinable from outside.
 2. **Tailscale exit node**: `~/exit-node.sh` is on horae (IP forwarding + `accept_ra=2` for eth0 so IPv6 survives). Not confirmed
    run/approved yet. After `sudo bash ~/exit-node.sh`, approve in Tailscale admin > Machines > horae > Edit route settings.
 3. **Home Assistant**: Todd still needs to create the account, then a long-lived token for a Homepage/Olympus HA widget.
@@ -56,10 +53,8 @@ art project; keep it subtle, modern and readable. No dark mode.
    (`ws://localhost:5580/ws`) and share each device from Apple Home (Turn On Pairing Mode -> code -> HA). State syncs live
    over Matter; devices added to Apple Home later must be shared the same way. Not yet run on the Pi.
    `pi-setup.sh`'s embedded compose is older than `horae/stack/` (no Matter, Pi-hole not on host network).
-4. **This PC**: set Wi-Fi DNS to 192.168.1.224 (optional once the ASUS is in) and switch the network profile to **Private**
-   (Windows blocks mDNS on Public, which is why `horae.local` doesn't resolve here).
-5. **hephaestus**: install the Olympus agent when it's booted into Ubuntu (copy `olympus/agent-horae/docker-compose.yml`,
-   set `HOST_NAME`, `BIND` to its Tailscale IP). AMD GPU, so no nvidia-smi; temps come from hwmon.
+4. **This PC**: network profile must be **Private** (Windows blocks mDNS on Public, which is why `horae.local` doesn't resolve).
+5. **hephaestus**: Olympus agent is installed; check it reports in Olympus when the tower is in Ubuntu.
 6. Daytime look of the sun arc not visually verified (only seen at night).
 7. Possible: add a login to Olympus/Network if the tailnet is ever shared.
 

@@ -5,8 +5,10 @@ Code and config for the home lab: three machines on Tailscale, one dashboard sui
 | Machine | What it is | Runs |
 |---|---|---|
 | **helios** | Always-on Ubuntu laptop (GTX 1060) | AI stack (`/opt/ai-stack`, not in this repo), **Olympus** dashboard, **Network Watch**, Dragonwilds server |
-| **horae** | Raspberry Pi 4 (Pi OS Lite), LAN 192.168.1.224 | Pi-hole (DNS + ad blocking), Home Assistant + Matter server, Homepage, Tailscale exit node |
+| **horae** | Raspberry Pi 4 (Pi OS Lite), LAN 192.168.50.2 | Pi-hole (DNS + ad blocking), Home Assistant + Matter server, Homepage, Tailscale exit node |
 | **hephaestus** | Tower, dual boot; a server only when in Ubuntu | Ollama coding models (Olympus agent not installed yet) |
+
+Network (addresses, DNS, port forwards, moving a server's Wi-Fi): see [`docs/NETWORK.md`](docs/NETWORK.md).
 
 ## Apps
 
