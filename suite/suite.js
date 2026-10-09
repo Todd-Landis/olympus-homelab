@@ -7,12 +7,6 @@
   ];
   const LAT = 39.88, LON = -83.09; // Grove City, OH: drives the sun's real arc
 
-  // Shown inside Olympus' app panel: drop our own masthead (Olympus already has one) so links don't nest the suite.
-  const embedded = window.self !== window.top;
-  if (embedded) document.documentElement.classList.add("embedded");
-  let openApp = null; // set by mount(): returns true if the page opened the app itself (Olympus shows it in a tab)
-  const go = (a) => { if (!(openApp && openApp(a))) location.href = a.url; };
-
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const $ = (s, r = document) => r.querySelector(s);
 
@@ -50,8 +44,7 @@
   }
 
   // ---------------------------------------------------------------- masthead
-  function mount({ app, title, open }) {
-    openApp = open || null;
+  function mount({ app, title }) {
     const host = $("#masthead");
     const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
     host.innerHTML = `
@@ -71,11 +64,6 @@
       </header>
       <div class="rule"></div>`;
     $("#oracle-open").addEventListener("click", () => Oracle.open());
-    $(".suite-nav").addEventListener("click", (e) => {
-      const el = e.target.closest("a"), a = el && APPS.find((x) => x.url === el.getAttribute("href"));
-      if (!a || e.button || e.ctrlKey || e.metaKey || e.shiftKey || !openApp) return;
-      if (openApp(a)) e.preventDefault();
-    });
     const tick = () => { const c = $("#suite-clock"); if (c) c.textContent = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); };
     tick(); setInterval(tick, 1000 * 15);
     drawSky(); setInterval(drawSky, 60000);
@@ -128,7 +116,7 @@
     close() { $("#oracle")?.classList.remove("open"); },
     async search() {
       const q = $("#oracle-q").value.trim().toLowerCase();
-      const base = APPS.map((a) => ({ group: "Go to", icon: a.name[0], title: a.name, sub: a.blurb, run: () => go(a) }));
+      const base = APPS.map((a) => ({ group: "Go to", icon: a.name[0], title: a.name, sub: a.blurb, run: () => (location.href = a.url) }));
       const lists = await Promise.all(providers.map((p) => Promise.resolve(p(q)).catch(() => [])));
       const all = [...base, ...lists.flat()];
       const scored = all.map((it) => ({ it, s: score(q, it) })).filter((x) => x.s > 0);
@@ -207,5 +195,5 @@
     fn();
   }
 
-  window.Suite = { mount, setLive, toast, tween, Oracle, esc, transition, APPS, embedded };
+  window.Suite = { mount, setLive, toast, tween, Oracle, esc, transition, APPS };
 })();

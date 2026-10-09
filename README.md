@@ -31,8 +31,7 @@ pihole-watch/       Network Watch: syncs Pi-hole's query log into SQLite, serves
 suite/              shared CSS/JS (+ horae-specific overrides.css / mount.js)
 horae/
   scripts/          pi-setup.sh (stack install), pi-extras.sh (logs, backups, Tailscale),
-                    pihole-hostnet.sh, exit-node.sh, rename-horae.sh,
-                    ha-allow-framing.sh (lets Olympus show Home Assistant in its Apps panel)
+                    pihole-hostnet.sh, exit-node.sh, rename-horae.sh
   stack/            /opt/pihub/docker-compose.yml (Pi-hole, Home Assistant, Homepage)
   homepage/         Homepage config (services, widgets, settings)
   first-boot/       cloud-init templates for re-flashing the SD card (placeholders only)

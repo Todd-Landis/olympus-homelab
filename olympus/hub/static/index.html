@@ -80,26 +80,6 @@
   pre.logs mark { background: #f8e3b5; color: inherit; border-radius: 3px; }
   ::view-transition-group(*) { animation-duration: .3s; }
 
-  /* app panel: every service with a web page, as tabs, kept loaded while you switch */
-  .deck-card { overflow: hidden; }
-  .deck-bar { display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: var(--surface-2); border-bottom: 1px solid var(--border); }
-  .deck-tabs { display: flex; gap: 2px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
-  .deck-tab { display: inline-flex; align-items: center; gap: 7px; font: 500 13px var(--sans); color: var(--text-2); background: none; border: 0; padding: 6px 11px; border-radius: 7px; cursor: pointer; white-space: nowrap; text-decoration: none; }
-  .deck-tab:hover { color: var(--text); background: var(--surface); }
-  .deck-tab[aria-selected="true"] { color: var(--text); background: var(--surface); box-shadow: 0 1px 2px rgba(40, 32, 20, .08); }
-  .deck-tab .dot { width: 6px; height: 6px; }
-  .deck-tab.ext { color: var(--muted); }
-  .deck-tools { display: flex; gap: 6px; flex: none; }
-  .deck-stage { position: relative; height: 70vh; min-height: 240px; }
-  .deck-stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: none; }
-  .deck-stage iframe.on { display: block; }
-  .deck-stage.dragging iframe { pointer-events: none; }
-  .deck-msg { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 13.5px; }
-  .deck-grip { height: 10px; cursor: ns-resize; border-top: 1px solid var(--border); background: var(--surface-2); touch-action: none; display: grid; place-items: center; }
-  .deck-grip::after { content: ""; width: 36px; height: 3px; border-radius: 99px; background: var(--border-strong); }
-  .deck.collapsed .deck-stage, .deck.collapsed .deck-grip { display: none; }
-  .deck.collapsed .deck-bar { border-bottom: 0; }
-  @media (max-width: 760px) { .deck-tools .wide { display: none; } }
 
   /* ask: chat about the home lab; answers come with live tiles */
   .ask-bar { display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 14px; }
@@ -180,22 +160,6 @@
   </section>
   <main>
     <div id="view" aria-live="polite"></div>
-    <section class="deck" id="deck" hidden aria-label="Apps">
-      <div class="sec"><h2>Apps</h2><small>Tabs stay loaded while you switch</small></div>
-      <div class="card deck-card">
-        <div class="deck-bar">
-          <div class="deck-tabs" id="deck-tabs" role="tablist" aria-label="Apps"></div>
-          <div class="deck-tools">
-            <button class="btn" id="deck-reload" title="Reload this app">Reload</button>
-            <button class="btn wide" id="deck-newtab" title="Open this app in its own tab">New tab ↗</button>
-            <button class="btn" id="deck-fold" aria-expanded="true">Hide</button>
-          </div>
-        </div>
-        <div class="deck-stage" id="deck-stage" role="tabpanel"><div class="deck-msg" id="deck-msg"></div></div>
-        <div class="deck-grip" id="deck-grip" title="Drag to resize · double-click to reset" aria-hidden="true"></div>
-      </div>
-    </section>
-    <div id="view2"></div>
   </main>
 </div>
 
@@ -270,8 +234,8 @@ function svcTile(s) {
   const label = s.up == null ? "checking" : s.up ? `${s.ms ?? ""} ms` : away ? "offline" : "down";
   const ini = s.name.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
   const inner = `<span class="ic">${esc(ini)}</span><div style="min-width:0"><div class="name">${esc(s.name)}</div><div class="meta">${esc(s.host)}${s.desc ? " · " + esc(s.desc) : ""}</div></div>
-    <div class="st"><span><span class="dot ${st}"></span> ${label}</span>${s.url ? `<span class="arrow">${s.embed === false ? "↗" : "→"}</span>` : ""}</div>`;
-  return s.url ? `<a class="card lift svc" href="${esc(s.url)}" target="_blank" rel="noopener" data-svc="${esc(s.id)}" title="${s.embed === false ? `Open ${esc(s.name)} in a new tab` : `Open ${esc(s.name)} in Apps`}">${inner}</a>` : `<div class="card svc" title="No web page">${inner}</div>`;
+    <div class="st"><span><span class="dot ${st}"></span> ${label}</span>${s.url ? `<span class="arrow">↗</span>` : ""}</div>`;
+  return s.url ? `<a class="card lift svc" href="${esc(s.url)}" target="_blank" rel="noopener" title="Open ${esc(s.name)}">${inner}</a>` : `<div class="card svc" title="No web page">${inner}</div>`;
 }
 function banner(alerts) {
   if (!alerts.length) return `<div class="banner"><span class="dot ok live"></span>All systems normal</div>`;
@@ -281,7 +245,7 @@ function networkWidget(n) {
   if (!n) return "";
   if (n.error) return `<div class="card widget"><h4>Network <a href="${esc(n.url)}">Open ↗</a></h4><div class="empty">Unavailable: ${esc(n.error)}</div></div>`;
   const max = Math.max(1, ...n.series);
-  return `<div class="card widget"><h4>Network <small>last 24 hours</small><a href="${esc(n.url)}" data-svc="netwatch">Open</a></h4>
+  return `<div class="card widget"><h4>Network <small>last 24 hours</small><a href="${esc(n.url)}">Open ↗</a></h4>
     <div class="kpis"><div class="kpi"><div class="n">${tw("nq", n.queries)}</div><div class="l">lookups</div></div>
       <div class="kpi"><div class="n">${tw("nb", n.blocked)}</div><div class="l">blocked (${pct(n.blocked, n.queries).toFixed(0)}%)</div></div>
       <div class="kpi"><div class="n">${tw("ns", n.sites)}</div><div class="l">sites</div></div></div>
@@ -294,12 +258,11 @@ function aiWidget(list) {
     ${list.map((o) => `<div class="model"><span class="dot ${o.online ? "ok" : "off"}"></span><b style="font-weight:500">${esc(o.host)}</b>
       <span class="what">${o.online ? `${o.installed} installed · ${o.loaded.length ? "loaded: " + o.loaded.map((m) => `${esc(m.name)} (${bytes(m.vram)})`).join(", ") : "none loaded"}` : "offline"}</span></div>`).join("")}</div>`;
 }
-// The app panel sits between these two halves and is never re-rendered, so its iframes keep their state.
 function overview(d) {
-  return [`${banner(d.alerts)}
-    <div class="sec"><h2>Machines</h2></div><div class="grid hosts">${d.hosts.map(hostCard).join("")}</div>`,
-    `<div class="sec"><h2>Services</h2><small>${d.services.filter((s) => s.up).length} of ${d.services.length} up</small></div><div class="grid services">${d.services.map(svcTile).join("")}</div>
-    <div class="sec"><h2>Activity</h2></div><div class="grid widgets">${networkWidget(d.widgets.network)}${aiWidget(d.widgets.ollama)}</div>`];
+  return `${banner(d.alerts)}
+    <div class="sec"><h2>Machines</h2></div><div class="grid hosts">${d.hosts.map(hostCard).join("")}</div>
+    <div class="sec"><h2>Services</h2><small>${d.services.filter((s) => s.up).length} of ${d.services.length} up</small></div><div class="grid services">${d.services.map(svcTile).join("")}</div>
+    <div class="sec"><h2>Activity</h2></div><div class="grid widgets">${networkWidget(d.widgets.network)}${aiWidget(d.widgets.ollama)}</div>`;
 }
 
 // ------------------------------------------------------------------ host detail
@@ -374,7 +337,7 @@ const setRoute = (r) => { location.hash = r ? "#/" + r : ""; };
 window.addEventListener("hashchange", () => {
   route = location.hash.replace(/^#\/?/, "");
   if (route) Ask.exit(true);  // a machine card in an answer opens that machine
-  Suite.transition(async () => { lastHtml = ""; await refresh(true); if (deckScroll) { deckScroll = false; Deck.reveal(); } else window.scrollTo(0, 0); });
+  Suite.transition(async () => { lastHtml = ""; await refresh(true); window.scrollTo(0, 0); });
 });
 async function api(path, opts) { const r = await fetch(path, opts); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || r.statusText); return j; }
 async function refresh(force = false) {
@@ -382,17 +345,15 @@ async function refresh(force = false) {
   busy = true;
   try {
     const host = route.startsWith("host/") ? route.slice(5) : null;
-    let html, html2 = "";
+    let html;
     if (host) { const h = await api("/api/host/" + encodeURIComponent(host)); if (h.sometimes_off && !h.online) awayHosts.add(h.name); html = hostView(h); document.title = `${h.label} · Olympus`; }
     else {
       lastState = await api("/api/state");
       awayHosts = new Set(lastState.hosts.filter((x) => x.sometimes_off && !x.online).map((x) => x.name));
-      [html, html2] = overview(lastState); Deck.update(lastState.services); document.title = lastState.alerts.length ? `(${lastState.alerts.length}) Olympus` : "Olympus";
+      html = overview(lastState); document.title = lastState.alerts.length ? `(${lastState.alerts.length}) Olympus` : "Olympus";
     }
     lastOk = Date.now();
-    $("#deck").hidden = !!host || !Deck.count();
-    const both = html + "\u0000" + html2;
-    if (both !== lastHtml) { const y = window.scrollY; $("#view").innerHTML = html; $("#view2").innerHTML = html2; lastHtml = both; if (!force) window.scrollTo(0, y); tween($("main")); }
+    if (html !== lastHtml) { const y = window.scrollY; $("#view").innerHTML = html; lastHtml = html; if (!force) window.scrollTo(0, y); tween($("#view")); }
   } catch (e) {
     if (!lastHtml) $("#view").innerHTML = `<div class="card panel"><div class="empty">Couldn't load: ${esc(e.message)}</div></div>`;
   } finally { busy = false; Suite.setLive(Date.now() - lastOk < 15000); }
@@ -452,8 +413,6 @@ async function act(host, id, action, name, btn) {
 
 document.addEventListener("click", (e) => {
   const t = e.target;
-  const sv = t.closest("[data-svc]");
-  if (sv && !e.button && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey && openApp(sv.dataset.svc)) return e.preventDefault();
   if (t.closest("[data-close]") || t.id === "drawer") return closeLogs();
   const nav = t.closest("[data-nav]"); if (nav) return setRoute(nav.dataset.nav);
   const lg = t.closest("[data-logs]"); if (lg) return openLogs(route.slice(5), lg.dataset.logs, lg.dataset.name);
@@ -479,7 +438,7 @@ async function allContainers() {
 Suite.Oracle.register(async (q) => {
   const st = lastState || (await api("/api/state"));
   const out = st.hosts.map((h, i) => ({ group: "Machines", icon: h.label[0], title: h.label, sub: `${h.role} · ${h.online ? "online" : "offline"}`, hint: String(i + 1), run: () => setRoute("host/" + h.name) }));
-  st.services.filter((s) => s.url).forEach((s) => out.push({ group: "Services", icon: s.name[0], title: `Open ${s.name}`, sub: `${s.host} · ${s.up ? "up" : "down"}`, run: () => openApp(s.id) || window.open(s.url, "_blank", "noopener") }));
+  st.services.filter((s) => s.url).forEach((s) => out.push({ group: "Services", icon: s.name[0], title: `Open ${s.name}`, sub: `${s.host} · ${s.up ? "up" : "down"}`, run: () => window.open(s.url, "_blank", "noopener") }));
   if (q.length >= 2) {
     for (const c of await allContainers()) {
       out.push({ group: "Containers", icon: "≡", title: `${c.name} logs`, sub: `${c.hostLabel} · ${c.status}`, keywords: "logs log", run: () => { setRoute("host/" + c.host); setTimeout(() => openLogs(c.host, c.id, c.name), 450); } });
@@ -489,86 +448,6 @@ Suite.Oracle.register(async (q) => {
   return out;
 });
 
-// ------------------------------------------------------------------ app panel (tabs of iframes above Services)
-const Deck = (() => {
-  const el = $("#deck"), tabs = $("#deck-tabs"), stage = $("#deck-stage"), msg = $("#deck-msg"), frames = new Map();
-  let prefs = {}, apps = [], active = null, sig = "";
-  try { prefs = JSON.parse(localStorage.getItem("olympus.deck")) || {}; } catch {}
-  const save = (k, v) => { prefs[k] = v; try { localStorage.setItem("olympus.deck", JSON.stringify(prefs)); } catch {} };
-  const find = (id) => apps.find((a) => a.id === id);
-  const can = (id) => { const a = find(id); return !!a && a.embed !== false; }; // unknown (not checked yet) counts as embeddable
-  const folded = () => el.classList.contains("collapsed");
-
-  function renderTabs() {
-    tabs.innerHTML = apps.map((a) => {
-      const dot = `<span class="dot ${a.up == null || (!a.up && awayHosts.has(a.host)) ? "off" : a.up ? "ok" : "bad"}"></span>`;
-      return a.embed === false
-        ? `<a class="deck-tab ext" href="${esc(a.url)}" target="_blank" rel="noopener" title="${esc(a.name)} doesn't allow being shown inside another page, so it opens in a new tab">${dot}${esc(a.name)} ↗</a>`
-        : `<button class="deck-tab" role="tab" id="tab-${esc(a.id)}" data-tab="${esc(a.id)}" title="${esc(a.host)}">${dot}${esc(a.name)}</button>`;
-    }).join("");
-  }
-  function show() {
-    tabs.querySelectorAll("[data-tab]").forEach((b) => { const on = b.dataset.tab === active; b.setAttribute("aria-selected", on); b.tabIndex = on ? 0 : -1; });
-    const a = find(active);
-    stage.setAttribute("aria-labelledby", a ? "tab-" + a.id : "");
-    msg.textContent = a ? `Loading ${a.name}…` : "No apps can be shown here.";
-    if (a && !folded() && !frames.has(a.id)) {
-      const f = document.createElement("iframe");
-      f.src = a.url; f.title = a.name; f.allow = "clipboard-read; clipboard-write; fullscreen";
-      stage.appendChild(f); frames.set(a.id, f);
-    }
-    frames.forEach((f, id) => f.classList.toggle("on", id === active));
-  }
-  function update(services) {
-    apps = services.filter((s) => s.url);
-    for (const [id, f] of frames) if (!can(id)) { f.remove(); frames.delete(id); }
-    if (!can(active)) active = [prefs.tab, ...apps.map((a) => a.id)].find(can) || null;
-    const next = apps.map((a) => `${a.id}:${a.embed}:${a.up}:${awayHosts.has(a.host)}`).join("|");
-    if (next !== sig) { sig = next; renderTabs(); }
-    show();
-  }
-  function select(id, focus) {
-    if (!can(id)) return false;
-    active = id; save("tab", id);
-    if (folded()) fold(false);
-    show();
-    if (focus) tabs.querySelector(`[data-tab="${CSS.escape(id)}"]`)?.focus();
-    return true;
-  }
-  function fold(on) {
-    el.classList.toggle("collapsed", on); save("folded", on);
-    $("#deck-fold").textContent = on ? "Show" : "Hide"; $("#deck-fold").setAttribute("aria-expanded", !on);
-    if (!on) show();
-  }
-  function reveal() { el.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }); }
-
-  tabs.addEventListener("click", (e) => { const b = e.target.closest("[data-tab]"); if (b) select(b.dataset.tab); });
-  tabs.addEventListener("keydown", (e) => {
-    const ids = [...tabs.querySelectorAll("[data-tab]")].map((b) => b.dataset.tab), i = ids.indexOf(active);
-    const j = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: ids.length - 1 }[e.key];
-    if (j == null || !ids.length) return;
-    e.preventDefault(); select(ids[(j + ids.length) % ids.length], true);
-  });
-  $("#deck-reload").addEventListener("click", () => { const f = frames.get(active); if (f) { msg.textContent = "Reloading…"; f.src = find(active).url; } });
-  $("#deck-newtab").addEventListener("click", () => { const a = find(active); if (a) window.open(a.url, "_blank", "noopener"); });
-  $("#deck-fold").addEventListener("click", () => fold(!folded()));
-
-  // Drag the grip to resize; the height is remembered. Pointer capture keeps the drag from getting lost over an iframe.
-  const grip = $("#deck-grip");
-  if (prefs.height) stage.style.height = prefs.height + "px";
-  grip.addEventListener("pointerdown", (e) => {
-    e.preventDefault(); grip.setPointerCapture(e.pointerId); stage.classList.add("dragging");
-    const y0 = e.clientY, h0 = stage.offsetHeight;
-    const move = (ev) => { stage.style.height = Math.max(240, h0 + ev.clientY - y0) + "px"; };
-    grip.addEventListener("pointermove", move);
-    grip.addEventListener("pointerup", () => { grip.removeEventListener("pointermove", move); stage.classList.remove("dragging"); save("height", stage.offsetHeight); }, { once: true });
-  });
-  grip.addEventListener("dblclick", () => { stage.style.height = ""; save("height", null); });
-  if (prefs.folded) fold(true);
-
-  return { update, select, reveal, can, count: () => apps.length };
-})();
-let deckScroll = false;
 
 // ------------------------------------------------------------------ ask: questions answered with live tiles
 const when = (t) => new Date(t * 1000).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -593,7 +472,7 @@ function netTile(t) {
     body = `<ul class="ranked">${t.rows.map((r) => `<li title="first ${esc(when(r.first))} · last ${esc(when(r.last))}"><i style="width:${(100 * r.queries / max).toFixed(1)}%"></i>
       <span class="name">${esc(r.name)}</span><span class="b">${r.blocked ? N(r.blocked) + " blocked" : ""}</span><span class="v">${N(r.queries)}</span></li>`).join("")}</ul>`;
   }
-  return `<div class="card tile"><h4>Network <small>${esc(what)}</small><a href="http://helios:8095/" data-svc="netwatch">Open</a></h4>
+  return `<div class="card tile"><h4>Network <small>${esc(what)}</small><a href="http://helios:8095/" target="_blank" rel="noopener">Open ↗</a></h4>
     <div class="kpis"><div class="kpi"><div class="n">${N(t.queries)}</div><div class="l">lookups</div></div><div class="kpi"><div class="n">${N(t.blocked)}</div><div class="l">blocked</div></div></div>${body}</div>`;
 }
 function tileHtml(t) {
@@ -712,19 +591,7 @@ const Ask = (() => {
   });
   return { focus: () => input.focus(), exit, active };
 })();
-// Show an app in the panel (from a tile, the nav, or search). Returns false if it can't be embedded, so callers fall back to a new tab.
-function openApp(id) {
-  if (!Deck.select(id)) return false;
-  Ask.exit(true);
-  if (route) { deckScroll = true; setRoute(""); } else Deck.reveal();
-  return true;
-}
-
-Suite.mount({ app: "olympus", open: (a) => {
-  if (a.id === "olympus") { if (route) setRoute(""); return true; }
-  const s = lastState?.services.find((x) => x.url && new URL(x.url).href === new URL(a.url).href);
-  return !!s && openApp(s.id);
-} });
+Suite.mount({ app: "olympus" });
 refresh(true);
 </script>
 </body>

@@ -68,9 +68,9 @@ art project; keep it subtle, modern and readable. No dark mode.
      `read -rsp "Anthropic API key: " k && printf '%s' "$k" > ~/olympus/secrets/anthropic.key && chmod 600 ~/olympus/secrets/anthropic.key; unset k`
      Model `claude-opus-5-5`, with server-side refusal fallback on. Only the rows a question looks up leave the house.
    - Read-only by design for now; action buttons (restart, block) in tiles are a planned next step.
-8. **Olympus Apps panel** (tabs of iframes above Services) is built but not deployed: `./deploy.sh olympus netwatch horae-theme`.
-   For Home Assistant to load there, copy `horae/scripts/ha-allow-framing.sh` to horae and run `sudo bash ~/ha-allow-framing.sh`.
-   Pi-hole blocks framing too and its login cookie is SameSite=Strict, so it stays a new-tab link.
+8. The Apps panel (iframes of each service on the overview) was tried and removed in favour of the chat.
+   `ha-allow-framing.sh` had already set `http: use_x_frame_options: false` in Home Assistant's configuration.yaml on
+   horae; it's harmless, but to undo it delete that line (a `.bak-` copy sits next to the file) and restart Home Assistant.
 
 ## How to work here
 
