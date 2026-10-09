@@ -11,7 +11,7 @@
 <style>
   .banner { display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--text-2); }
   .banner.trouble { padding: 12px 16px; border-color: #efd2cf; background: #fdf6f5; display: block; }
-  .banner.trouble b { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--bad); }
+  .banner.trouble b { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--bad-ink); }
   .banner ul { margin: 6px 0 0; padding-left: 24px; }
 
   .hosts { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
@@ -35,13 +35,13 @@
   .svc .name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .svc .meta { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .svc .st { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font: 500 11.5px var(--mono); color: var(--muted); flex: none; }
-  .svc .st .arrow { font: 400 14px var(--sans); color: var(--faint); }
+  .svc .st .arrow { font: 400 14px var(--sans); color: var(--muted); }
   a.svc:hover .arrow { color: var(--accent); }
 
   .widgets { grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); align-items: start; }
   .widget { padding: 16px 18px; }
   .widget h4 { display: flex; align-items: baseline; gap: 8px; }
-  .widget h4 a { margin-left: auto; font: 500 12.5px var(--sans); color: var(--accent); text-decoration: none; }
+  .widget h4 a { margin-left: auto; font: 500 12.5px var(--sans); color: var(--accent-ink); text-decoration: none; padding: 5px 0; margin-block: -5px; }
   .widget h4 a:hover { text-decoration: underline; }
   .bars { display: flex; align-items: flex-end; gap: 2px; height: 48px; margin: 14px 0 12px; }
   .bars span { flex: 1; background: #d9e5ee; border-radius: 2px 2px 0 0; min-height: 2px; }
@@ -50,7 +50,7 @@
   .model:last-child { border-bottom: 0; }
   .model .what { margin-left: auto; color: var(--muted); font-size: 12.5px; }
 
-  .back { font: 500 13px var(--sans); background: none; border: 0; cursor: pointer; padding: 0; color: var(--muted); }
+  .back { font: 500 13px var(--sans); background: none; border: 0; cursor: pointer; padding: 4px 0; color: var(--muted); }
   .back:hover { color: var(--text); }
   .hero { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 10px 0 4px; padding-left: 12px; border-left: 3px solid var(--hc, var(--border)); }
   .hero h1 { margin: 0; font: 600 26px var(--sans); letter-spacing: -.02em; }
@@ -72,11 +72,11 @@
   .temp { padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 12.5px; color: var(--muted); }
   .temp b { color: var(--text); font-weight: 600; margin-left: 4px; font-variant-numeric: tabular-nums; }
   .cname { font-weight: 500; }
-  .img { font: 11.5px var(--mono); color: var(--faint); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .img { font: 11.5px var(--mono); color: var(--muted); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .btns { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
   pre.logs { margin: 0; font: 12.5px/1.6 var(--mono); white-space: pre-wrap; word-break: break-word; color: var(--text); }
   pre.logs.nowrap { white-space: pre; }
-  pre.logs .ts { color: var(--faint); } pre.logs .err { color: var(--bad); } pre.logs .wrn { color: var(--warn); }
+  pre.logs .ts { color: var(--muted); } pre.logs .err { color: var(--bad-ink); } pre.logs .wrn { color: var(--warn-ink); }
   pre.logs mark { background: #f8e3b5; color: inherit; border-radius: 3px; }
   ::view-transition-group(*) { animation-duration: .3s; }
 
@@ -91,7 +91,7 @@
   .site { display: inline-flex; align-items: center; gap: 7px; flex: none; text-decoration: none; font: 500 12.5px var(--sans); color: var(--text-2); padding: 5px 11px; border: 1px solid var(--border); border-radius: 99px; background: var(--surface); }
   .site:hover { border-color: var(--border-strong); color: var(--text); }
   .site .dot { width: 6px; height: 6px; }
-  .site i { font-style: normal; color: var(--faint); }
+  .site i { font-style: normal; color: var(--muted); }
 
   /* chat: the main view */
   .chat { display: flex; flex-direction: column; min-height: calc(100dvh - 150px); }
@@ -105,8 +105,8 @@
   .ask-hints button { font: 500 13px var(--sans); color: var(--text-2); background: var(--surface); border: 1px solid var(--border); border-radius: 99px; padding: 6px 12px; cursor: pointer; }
   .ask-hints button:hover { border-color: var(--border-strong); color: var(--text); }
   .composer { position: sticky; bottom: 14px; z-index: 5; display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 16px; box-shadow: 0 14px 0 var(--bg), var(--shadow-hover); }
-  .composer:focus-within { border-color: var(--border-strong); }
-  .composer input { flex: 1; min-width: 0; border: 0; outline: none; background: none; font: 400 15.5px var(--sans); color: var(--text); padding: 9px 0; }
+  .composer:focus-within { border-color: #9dbad1; box-shadow: 0 14px 0 var(--bg), 0 0 0 3px rgba(47, 111, 159, .14), var(--shadow-hover); }
+  .composer input { flex: 1; min-width: 0; border: 0; outline: none;  /* the whole bar shows focus instead */ background: none; font: 400 15.5px var(--sans); color: var(--text); padding: 9px 0; }
   .composer input::placeholder { color: var(--faint); }
   .composer select { font-size: 12.5px; padding: 5px 8px; max-width: 150px; }
   .composer .btn.go { padding: 7px 16px; }
@@ -119,14 +119,14 @@
   .reply .a { font-size: 15.5px; line-height: 1.6; color: var(--text); }
   .reply .a:empty { display: none; }
   .reply .a p { margin: 0 0 8px; } .reply .a p:last-child { margin: 0; }
-  .reply .a.err { color: var(--bad); }
+  .reply .a.err { color: var(--bad-ink); }
   .reply .a code { font: .9em var(--mono); background: var(--surface-2); padding: 1px 4px; border-radius: 4px; }
   .reply .note { font-size: 13.5px; color: var(--muted); margin-bottom: 8px; }
   .steps { display: flex; flex-wrap: wrap; gap: 6px; }
   .steps:empty { display: none; }
   .reply .a:not(:empty) + .steps { margin-top: 12px; padding-top: 10px; border-top: 1px solid #f1ede5; }
   .step { display: inline-flex; align-items: center; gap: 7px; font: 500 12px var(--sans); color: var(--muted); padding: 3px 10px; border: 1px solid var(--border); border-radius: 99px; background: var(--surface-2); }
-  .step.err { color: var(--bad); border-color: #efd2cf; background: var(--bad-soft); }
+  .step.err { color: var(--bad-ink); border-color: #efd2cf; background: var(--bad-soft); }
   .step .dot { width: 6px; height: 6px; }
   .tiles { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
   .tiles:empty { display: none; }
@@ -136,7 +136,7 @@
   .tile h4 { margin: 0 0 10px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font: 600 13.5px var(--sans); }
   .tile h4 small { font-weight: 400; color: var(--muted); }
   .tile h4 .acts { margin-left: auto; display: flex; gap: 12px; }
-  .tile h4 .acts a, .tile h4 .acts button { font: 500 12.5px var(--sans); color: var(--accent); text-decoration: none; background: none; border: 0; padding: 0; cursor: pointer; }
+  .tile h4 .acts a, .tile h4 .acts button { font: 500 12.5px var(--sans); color: var(--accent-ink); text-decoration: none; background: none; border: 0; padding: 5px 2px; margin: -5px 0; cursor: pointer; }
   .tile .crumb { font: 500 12px var(--sans); color: var(--muted); margin-bottom: 4px; }
   .tile .scroll { max-height: 360px; overflow: auto; margin-top: 10px; }
   .tile .viz { width: 100%; margin-top: 6px; overflow: hidden; }  /* tooltips are confined to the chart, so nothing useful is clipped */
@@ -147,9 +147,9 @@
 
   /* devices & people */
   .people .ledger input { font: 400 13.5px var(--sans); color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 5px 8px; width: 100%; min-width: 120px; }
-  .people .ledger input:focus { border-color: var(--border-strong); outline: none; }
+  .people .ledger input:focus { border-color: var(--border-strong); }
   .people .ledger td { vertical-align: top; }
-  .people .ips { font: 11.5px var(--mono); color: var(--faint); margin-top: 3px; }
+  .people .ips { font: 11.5px var(--mono); color: var(--muted); margin-top: 3px; }
   .people .who { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
   .people .who span { font: 500 12.5px var(--sans); padding: 3px 10px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2); }
   .people .who b { font-weight: 600; color: var(--text); }
@@ -157,6 +157,8 @@
     .olnav { margin-top: -4px; } .sites { margin-left: 0; width: 100%; }
     .composer select { max-width: 100px; }
     .people .hide-sm { display: none; }
+    .people .ledger input { min-width: 0; }
+    .people .ledger td, .people .ledger th { padding-left: 4px; padding-right: 4px; }
   }
 </style>
 </head>
@@ -165,7 +167,7 @@
   <div id="masthead"></div>
   <nav class="olnav" aria-label="Olympus">
     <div class="tabs"><a class="tab" href="#/" data-tab="chat">Chat</a><a class="tab" href="#/dashboard" data-tab="dashboard">Dashboard</a></div>
-    <div class="sites" id="sites" aria-label="Hosted sites"></div>
+    <div class="sites" id="sites" role="group" aria-label="Hosted sites"></div>
   </nav>
   <section class="chat" id="chat" aria-label="Ask about the home lab">
     <div class="chat-empty" id="chat-empty">
@@ -364,7 +366,7 @@ function hostView(h) {
     <div class="grid two"><div class="card panel"><h4>Storage</h4>${disks}</div><div class="card panel"><h4>Temperatures</h4><div class="temps">${temps || `<span class="muted">No sensors</span>`}</div>${units}</div></div>
     ${svcs}
     <div class="sec"><h2>Containers</h2><small>${h.containers_running} of ${h.containers_total} running</small></div>
-    <div class="card panel" style="overflow-x:auto;padding-top:6px"><table class="ledger"><tr><th>Container</th><th>State</th><th class="r">CPU</th><th class="r">Memory</th><th class="hide-sm">Ports</th><th></th></tr>${containerRows(h.containers)}</table></div>`;
+    <div class="card panel" style="overflow-x:auto;padding-top:6px" tabindex="0" role="region" aria-label="Containers"><table class="ledger"><tr><th>Container</th><th>State</th><th class="r">CPU</th><th class="r">Memory</th><th class="hide-sm">Ports</th><th></th></tr>${containerRows(h.containers)}</table></div>`;
 }
 
 // ------------------------------------------------------------------ routing + live polling
@@ -387,7 +389,7 @@ async function api(path, opts) { const r = await fetch(path, opts); const j = aw
 function renderSites(services) {
   const html = services.filter((s) => s.url).map((s) => {
     const away = !s.up && awayHosts.has(s.host), st = s.up == null || away ? "off" : s.up ? "ok" : "bad";
-    return `<a class="site" href="${esc(s.url)}" target="_blank" rel="noopener" title="${esc(s.host)}${s.desc ? " · " + esc(s.desc) : ""} · ${s.up ? "up" : s.up === false ? (away ? "offline" : "down") : "checking"}"><span class="dot ${st}"></span>${esc(s.name)}<i>↗</i></a>`;
+    return `<a class="site" href="${esc(s.url)}" target="_blank" rel="noopener" title="${esc(s.host)}${s.desc ? " · " + esc(s.desc) : ""} · ${s.up ? "up" : s.up === false ? (away ? "offline" : "down") : "checking"}"><span class="dot ${st}"></span>${esc(s.name)}<i aria-hidden="true">↗</i></a>`;
   }).join("");
   if (html !== sitesHtml) $("#sites").innerHTML = sitesHtml = html;
 }
@@ -428,7 +430,7 @@ const People = (() => {
     body.innerHTML = `${names.length ? `<div class="who">${names.map((p) => `<span title="${esc(people[p].join(", "))}"><b>${esc(p)}</b> · ${people[p].length} device${people[p].length > 1 ? "s" : ""}</span>`).join("")}</div>`
         : `<p class="muted" style="margin:0 0 12px">Nobody assigned yet. Type who uses a device (comma-separated for shared ones) and save.</p>`}
       <datalist id="people-list">${names.map((p) => `<option value="${esc(p)}">`).join("")}</datalist>
-      <div style="overflow-x:auto"><table class="ledger"><tr><th>Device</th><th>Used by</th><th class="r hide-sm">Lookups (24 h)</th><th class="hide-sm">Last seen</th><th></th></tr>
+      <div style="overflow-x:auto" tabindex="0" role="region" aria-label="Devices"><table class="ledger"><tr><th>Device</th><th>Used by</th><th class="r hide-sm">Lookups (24 h)</th><th class="hide-sm">Last seen</th><th></th></tr>
       ${list.map((d, i) => `<tr data-i="${i}"><td><input name="name" value="${esc(d.name)}" maxlength="60" aria-label="Name for ${esc(d.name)}"><div class="ips">${esc(d.ips.join(" · "))}</div></td>
         <td><input name="people" value="${esc(d.people.join(", "))}" placeholder="e.g. Todd, Sam" list="people-list" aria-label="People using ${esc(d.name)}"></td>
         <td class="r mono hide-sm">${N(d.lookups_24h)}</td><td class="hide-sm muted nowrap">${d.last ? ago(d.last) : "not seen"}</td>
@@ -556,8 +558,8 @@ function networkNode(t, crumb) {
   const tableFirst = t.group === "none";
   return node(`<div class="card tile">${crumb ? `<div class="crumb">↳ ${esc(crumb)}</div>` : ""}
     <h4>Network <small>${esc(what)}</small><span class="acts">${t.rows.length ? `<button type="button" data-table>${tableFirst ? "Hide table" : "Table"}</button>` : ""}<a href="${NW_URL}" target="_blank" rel="noopener">Open ↗</a></span></h4>
-    <div class="kpis"><div class="kpi"><div class="n">${N(t.queries)}</div><div class="l">lookups</div></div><div class="kpi"><div class="n">${N(t.blocked)}</div><div class="l">blocked</div></div></div>
-    ${t.rows.length ? `<div class="viz" role="img" aria-label="Chart of ${esc(what)}; the table has the same numbers"></div><div class="scroll" ${tableFirst ? "" : "hidden"}>${Viz.networkTable(t)}</div>` : `<div class="empty">Nothing matched.</div>`}</div>`);
+    <div class="kpis"><div class="kpi"><div class="n">${N(t.queries)}</div><div class="l">${t.status === "any" ? "lookups" : t.status + " lookups"}</div></div>${t.status === "any" ? `<div class="kpi"><div class="n">${N(t.blocked)}</div><div class="l">blocked (${t.queries ? Math.round(100 * t.blocked / t.queries) : 0}%)</div></div>` : ""}</div>
+    ${t.rows.length ? `<div class="viz" role="img" aria-label="Chart of ${esc(what)}; the table has the same numbers"></div><div class="scroll" tabindex="0" role="region" aria-label="Table: ${esc(what)}" ${tableFirst ? "" : "hidden"}>${Viz.networkTable(t)}</div>` : `<div class="empty">Nothing matched.</div>`}</div>`);
 }
 // Clicking a chart asks Network Watch directly (no model): the deeper view appears right under the chart.
 async function drill(parent, t, params, label) {
@@ -575,7 +577,7 @@ function hostNode(h) {
     <td class="r mono">${c.cpu != null ? c.cpu.toFixed(1) + "%" : "–"}</td><td class="r mono">${c.mem ? bytes(c.mem.used) : "–"}</td></tr>`).join("");
   return node(`<div class="grid tiles">${hostCard(h)}
     ${(h.history || []).length > 1 ? `<div class="card tile"><h4>${esc(h.label)} <small>CPU and memory, last 15 minutes</small></h4><div class="viz" data-host-viz role="img" aria-label="CPU and memory history"></div></div>` : ""}
-    ${rows ? `<div class="card panel" style="overflow-x:auto;padding-top:6px"><table class="ledger"><tr><th>Container</th><th>State</th><th class="r">CPU</th><th class="r">Memory</th></tr>${rows}</table></div>` : ""}</div>`);
+    ${rows ? `<div class="card panel" style="overflow-x:auto;padding-top:6px" tabindex="0" role="region" aria-label="${esc(h.label)} containers"><table class="ledger"><tr><th>Container</th><th>State</th><th class="r">CPU</th><th class="r">Memory</th></tr>${rows}</table></div>` : ""}</div>`);
 }
 function tileNode(t, crumb) {
   if (t.kind === "network") return networkNode(t, crumb);
@@ -587,7 +589,7 @@ function tileNode(t, crumb) {
   }
   if (t.kind === "logs") {
     return node(`<div class="card tile"><h4>${esc(t.container)} logs <small>${esc(t.host)} · ${t.contains ? `${N(t.lines.length)} lines with “${esc(t.contains)}” of ` : ""}${N(t.read)} read</small></h4>
-      <pre class="logs">${t.lines.map((l) => logLine(l, t.contains)).join("\n") || `<span class="muted">No matching lines.</span>`}</pre></div>`);
+      <pre class="logs" tabindex="0" role="region" aria-label="${esc(t.container)} log lines">${t.lines.map((l) => logLine(l, t.contains)).join("\n") || `<span class="muted">No matching lines.</span>`}</pre></div>`);
   }
   if (t.kind === "models") return node(aiWidget(t.ollama).replace('class="card widget"', 'class="card widget tile"'));
   return null;
@@ -682,7 +684,7 @@ const Ask = (() => {
   });
   return { focus: () => input.focus(), focusSoon: () => { if (matchMedia("(pointer: fine)").matches) setTimeout(() => input.focus(), 50); } };
 })();
-Suite.mount({ app: "olympus" });
+Suite.mount({ app: "olympus", nav: false });  // the header's site links already cover the other apps
 show();
 refresh(true);
 </script>

@@ -44,15 +44,15 @@
   }
 
   // ---------------------------------------------------------------- masthead
-  function mount({ app, title }) {
+  function mount({ app, title, nav = true }) {
     const host = $("#masthead");
     const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
     host.innerHTML = `
       <header class="mast">
         <a class="mast-brand" href="${APPS[0].url}"><b>Olympus</b>${title ? `<i>${esc(title)}</i>` : ""}</a>
-        <nav class="suite-nav" aria-label="Apps">
+        ${nav ? `<nav class="suite-nav" aria-label="Apps">
           ${APPS.map((a) => `<a href="${a.url}" ${a.id === app ? 'aria-current="page"' : ""}>${esc(a.name)}</a>`).join("")}
-        </nav>
+        </nav>` : ""}
         <div class="mast-right">
           <span class="status-pill" id="suite-live"><span class="dot"></span>Connecting</span>
           <span class="mast-sky"></span>

@@ -11,8 +11,8 @@
   --border-strong: #d8d1c3;
   --text: #1d1c1a;
   --text-2: #4a4741;
-  --muted: #77726a;
-  --faint: #a9a399;
+  --muted: #6b665e;          /* smallest text colour: >= 4.5:1 on every surface */
+  --faint: #a9a399;          /* borders, rules and decoration only; never text */
 
   --accent: #c4552d;          /* terracotta */
   --accent-soft: #f7e7df;
@@ -24,6 +24,8 @@
   --ok: #2f8a57;  --ok-soft: #e4f2e9;
   --warn: #b7790c; --warn-soft: #fbf0d9;
   --bad: #c03c37; --bad-soft: #fbe4e2;
+  /* "-ink": the same hues one step darker for text, so small text clears 4.5:1 on its tinted surfaces */
+  --accent-ink: #b04822; --ok-ink: #267349; --warn-ink: #946107; --bad-ink: #ad3530;
 
   --sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
   --mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
@@ -51,7 +53,7 @@ a { color: inherit; }
 
 /* ------------------------------------------------------------ header */
 .mast { display: flex; align-items: center; gap: 18px; padding: 18px 0; flex-wrap: wrap; }
-.mast-brand { display: flex; align-items: baseline; gap: 10px; text-decoration: none; }
+.mast-brand { display: flex; align-items: baseline; gap: 10px; text-decoration: none; padding: 2px 0; }
 .mast-brand b { font: 600 22px/1 var(--brand); letter-spacing: -.01em; }
 .mast-brand i { font: 500 14px var(--sans); font-style: normal; color: var(--muted); }
 .suite-nav { display: flex; gap: 2px; padding: 3px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; }
@@ -77,7 +79,7 @@ kbd { font: 500 11px var(--mono); color: var(--muted); padding: 1px 6px; border:
 @keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(47, 138, 87, .45); } 70%, 100% { box-shadow: 0 0 0 7px rgba(47, 138, 87, 0); } }
 
 /* ------------------------------------------------------------ sections + surfaces */
-.sec { display: flex; align-items: baseline; gap: 10px; margin: 30px 0 12px; }
+.sec { display: flex; align-items: baseline; gap: 4px 10px; margin: 30px 0 12px; flex-wrap: wrap; }
 .sec h2 { margin: 0; font: 600 15px var(--sans); letter-spacing: -.005em; }
 .sec small { font-size: 13px; color: var(--muted); }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
@@ -103,12 +105,12 @@ kbd { font: 500 11px var(--mono); color: var(--muted); padding: 1px 6px; border:
 .leaders li .v { font: 500 12.5px var(--mono); color: var(--muted); }
 
 .badge { display: inline-flex; align-items: center; gap: 5px; font: 500 11.5px var(--sans); padding: 1px 8px; border-radius: 99px; white-space: nowrap; background: #f1ede5; color: var(--text-2); }
-.badge.ok { background: var(--ok-soft); color: var(--ok); } .badge.warn { background: var(--warn-soft); color: var(--warn); } .badge.bad { background: var(--bad-soft); color: var(--bad); }
+.badge.ok { background: var(--ok-soft); color: var(--ok-ink); } .badge.warn { background: var(--warn-soft); color: var(--warn-ink); } .badge.bad { background: var(--bad-soft); color: var(--bad-ink); }
 .badge.plain { background: #f1ede5; color: var(--muted); }
 
 .btn { font: 500 12.5px var(--sans); color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; padding: 4px 10px; cursor: pointer; white-space: nowrap; transition: background .12s, border-color .12s; }
 .btn:hover { background: var(--surface-2); border-color: var(--faint); }
-.btn.danger { color: var(--bad); }
+.btn.danger { color: var(--bad-ink); }
 .btn.danger:hover { background: var(--bad-soft); border-color: #e9b7b3; }
 .btn.go { background: var(--text); color: var(--surface); border-color: var(--text); }
 .btn:disabled { opacity: .5; cursor: default; }
@@ -161,7 +163,7 @@ input[type=checkbox] { accent-color: var(--accent); width: 14px; height: 14px; }
 .oracle-item { display: flex; gap: 11px; align-items: center; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
 .oracle-item .ic { width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--border); display: grid; place-items: center; font: 600 12px var(--sans); color: var(--text-2); background: var(--surface-2); flex: none; }
 .oracle-item .t { font-weight: 500; } .oracle-item .s { font-size: 12.5px; color: var(--muted); }
-.oracle-item .k { margin-left: auto; font: 500 11px var(--mono); color: var(--faint); }
+.oracle-item .k { margin-left: auto; font: 500 11px var(--mono); color: var(--muted); }
 .oracle-item.on { background: #f3efe7; }
 .oracle-foot { display: flex; gap: 14px; padding: 8px 14px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); flex-wrap: wrap; }
 

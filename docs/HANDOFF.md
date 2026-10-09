@@ -79,6 +79,9 @@ art project; keep it subtle, modern and readable. No dark mode.
 
 ## How to work here
 
+- UI work: follow `.claude/skills/olympus-design` (design system in `docs/DESIGN.md`, history in `docs/design-log.md`).
+  `dev/stack.sh start` runs Olympus + Network Watch locally on fake data; `/ui-audit` and `/ui-critique` check it.
+
 - Edit in this repo, then `./deploy.sh olympus|netwatch|horae-agent|horae-theme|all`, verify, commit, push.
   Don't edit files on the servers directly.
 - Verify UI changes in the browser (http://helios/, http://helios:8095/, http://horae/). The built-in browser pane may report

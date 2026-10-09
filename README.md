@@ -35,6 +35,8 @@ horae/
   stack/            /opt/pihub/docker-compose.yml (Pi-hole, Home Assistant, Homepage)
   homepage/         Homepage config (services, widgets, settings)
   first-boot/       cloud-init templates for re-flashing the SD card (placeholders only)
+dev/                run everything locally against fake machines (dev/stack.sh), UI check tooling (dev/ui/)
+.claude/skills/     design skills: olympus-design, ui-audit, ui-critique, ui-polish (see docs/DESIGN.md)
 deploy.sh           push changes to the servers
 ```
 

@@ -146,13 +146,14 @@ def t_logs(a):
     if not want:
         raise ValueError("container is required")
     hosts = [pick_host(a["machine"])] if a.get("machine") else H.hosts
-    found = []
+    every = []
     for h in hosts:
         try:
-            cs = H.host(h).get("containers", [])
+            every += [(h, c) for c in H.host(h).get("containers", [])]
         except Exception:
             continue
-        found += [(h, c) for c in cs if c["name"].lower() == want] or [(h, c) for c in cs if want in c["name"].lower()]
+    # An exact name on any machine beats a partial match: "pihole" means pihole on horae, not pihole-watch on helios.
+    found = [x for x in every if x[1]["name"].lower() == want] or [x for x in every if want in x[1]["name"].lower()]
     if not found:
         raise ValueError(f"no container matching {want!r}")
     host, c = found[0]
