@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Make pihub a Tailscale exit node. Run: sudo bash ~/exit-node.sh
+# Make horae a Tailscale exit node. Run: sudo bash ~/exit-node.sh
 set -euo pipefail
 [[ $EUID -eq 0 ]] || { echo "Run with sudo: sudo bash $0"; exit 1; }
 
