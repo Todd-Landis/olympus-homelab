@@ -12,7 +12,7 @@ net.ipv6.conf.eth0.accept_ra = 2
 CONF
 sysctl -p /etc/sysctl.d/99-tailscale.conf
 
-echo "== Offer pihub as an exit node =="
+echo "== Offer horae as an exit node =="
 tailscale set --advertise-exit-node
 echo
-echo "Done. Now approve it: Tailscale admin -> Machines -> pihub -> ... -> Edit route settings -> Use as exit node."
+echo "Done. Now approve it: Tailscale admin -> Machines -> horae -> ... -> Edit route settings -> Use as exit node."
