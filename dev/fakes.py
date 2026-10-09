@@ -52,7 +52,15 @@ def agent(host):
                     "net": {"rx": 48000 + 90000 * wave, "tx": 9000 + 12000 * wave},
                     "gpu": {"name": "NVIDIA GeForce GTX 1060 6GB", "util": round(40 * wave), "mem_used": 3100, "mem_total": 6144, "temp": 61, "power": 38} if gpu else None,
                     "battery": {"percent": 100, "ac": True, "status": "Full"} if gpu else None,
-                    "units": [{"name": "dragonwilds", "active": True, "cpu": 3.2, "mem": 2.1e9}] if gpu else []})
+                    "units": [{"name": "dragonwilds", "active": True, "cpu": 3.2, "mem": 2.1e9}] if gpu else [],
+                    "servers": [{"name": "Dragonwilds", "unit": "dragonwilds", "game": "RuneScape: Dragonwilds Dedicated Server",
+                                 "build": "25808123", "updated": NOW - 30 * 3600, "running": True, "started": NOW - 6.2 * 3600,
+                                 "cpu": round(18 + 25 * wave, 1), "mem": 3.4e9, "world": "zombois_rs",
+                                 "players": [{"name": "Todd", "since": t - 2400}, {"name": "Sam", "since": t - 900}], "player_count": 2,
+                                 "last_activity": t - 900, "net_version": 118, "mismatch": {"t": t - 3 * 3600, "server": 117, "client": 118},
+                                 "last_save": t - 140, "log_found": True,
+                                 "events": [{"t": t - 9000, "event": "joined", "player": "Alex"}, {"t": t - 5400, "event": "left", "player": "Alex"},
+                                            {"t": t - 2400, "event": "joined", "player": "Todd"}, {"t": t - 900, "event": "joined", "player": "Sam"}]}] if gpu else []})
             if self.path == "/containers":
                 items = ([("open-webui", "ghcr.io/open-webui/open-webui:main", "ai-stack"), ("ollama", "ollama/ollama:latest", "ai-stack"),
                           ("comfyui", "comfyui:local", "ai-stack"), ("ntfy", "binwiederhier/ntfy", "ai-stack"),
@@ -95,6 +103,7 @@ class Ollama(BaseHTTPRequestHandler):
 
 
 SCRIPT = [
+    ("dragonwilds", ("game_servers", {})),
     ("who used", ("network_query", {"group": "person", "hours": 168})),
     ("busiest", ("network_query", {"group": "weekday_hour", "hours": 168})),
     ("blocked", ("network_query", {"group": "site", "status": "blocked", "hours": 168})),
@@ -112,6 +121,7 @@ ANSWERS = {
     "machine_details": "Horae is healthy: CPU is low, memory is under half, and all four containers are running.",
     "homelab_status": "Everything is up. Hephaestus is off, which is normal.",
     "ai_models": "**puck** is loaded on helios and using about 4 GB of the GPU.",
+    "game_servers": "**Todd and Sam** are on Dragonwilds right now; it has been up about 6 hours on build 25808123.",
 }
 
 

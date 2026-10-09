@@ -29,6 +29,7 @@ The home lab:
 - helios: always-on Ubuntu laptop (GTX 1060). Runs the AI stack (Open WebUI, ComfyUI, Ollama, ntfy), Olympus and Network Watch.
 - horae: Raspberry Pi 4. Runs Pi-hole (DNS and ad blocking for the house), Home Assistant and the Homepage dashboard.
 - hephaestus: a tower that is usually off or booted into Windows; it only reports when it runs Ubuntu.
+- Game servers: helios hosts a RuneScape: Dragonwilds dedicated server (world "zombois_rs") for Todd's friends.
 - Network Watch keeps 30 days of every DNS lookup each device made, through Pi-hole: device, domain, time, blocked or not.
   Devices have names, and Todd can say which people use each device (a shared device belongs to several people).
 
@@ -218,6 +219,26 @@ def t_devices(_):
                         for d in reg]}, None
 
 
+def ago_text(t):
+    if not t:
+        return None
+    s = time.time() - t
+    return f"{int(s // 60)} min ago" if s < 3600 else f"{s / 3600:.1f} h ago" if s < 86400 else f"{s / 86400:.1f} days ago"
+
+
+def t_servers(_):
+    servers = H.state()["servers"]
+    model = [{"name": g["name"], "machine": g["host"], "running": g["running"],
+              "up_for_h": round((time.time() - g["started"]) / 3600, 1) if g.get("started") else None,
+              "players_online": [p["name"] for p in g["players"]], "last_player_activity": ago_text(g.get("last_activity")),
+              "recent": [f'{e["player"]} {e["event"]} {local(e["t"])}' for e in g.get("events", [])[-5:]],
+              "build": g.get("build"), "build_installed": local(g.get("updated")), "network_version": g.get("net_version"),
+              "last_version_mismatch": g.get("mismatch") and {**g["mismatch"], "t": local(g["mismatch"]["t"])},
+              "cpu_pct": g.get("cpu"), "mem_gb": round(g["mem"] / 2**30, 1) if g.get("mem") else None,
+              "last_save": ago_text(g.get("last_save")), "world": g.get("world")} for g in servers]
+    return {"servers": model or "no game servers are reporting"}, {"kind": "servers", "servers": servers}
+
+
 def t_models(_):
     o = H.state()["widgets"].get("ollama") or []
     model = [{"host": x["host"], "online": x["online"], "installed": x.get("installed"),
@@ -260,13 +281,17 @@ TOOLS = [
       "limit": {"type": "integer", "description": "Max rows (default 25, max 200)"},
       "include_background": {"type": "boolean", "description": "Include background noise (default false)"}},
      []),
+    ("game_servers", t_servers,
+     "Dedicated game servers (Dragonwilds on helios): running or not, uptime, who is online, recent joins and leaves, "
+     "installed build, version mismatches with players' clients, last save, CPU and memory.",
+     {}, []),
     ("network_devices", t_devices, "Every device Network Watch knows: its name and the people who use it.", {}, []),
     ("ai_models", t_models, "Ollama models installed and currently loaded on helios and hephaestus.", {}, []),
 ]
 TOOL_FNS = {name: fn for name, fn, *_ in TOOLS}
 LABELS = {"homelab_status": "Checking every machine", "machine_details": "Looking at {machine}",
           "container_logs": "Reading {container} logs", "network_query": "Searching network history",
-          "network_devices": "Listing devices and people", "ai_models": "Checking AI models"}
+          "network_devices": "Listing devices and people", "game_servers": "Checking game servers", "ai_models": "Checking AI models"}
 
 
 def schema(props, required):

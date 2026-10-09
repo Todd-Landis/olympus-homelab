@@ -31,6 +31,8 @@ services:
       ALLOW: 100.88.170.59             # only the Olympus hub (on helios) may ask
       DISKS: /,/srv/models             # local disks only; the CIFS share would hang when the PC sleeps
       UNITS: dragonwilds,dragonwilds-version-watch
+      # Game servers: version from Steam's manifest, players from the server log (all read-only via /host/root)
+      SERVERS: '[{"name": "Dragonwilds", "unit": "dragonwilds", "dir": "/home/synestri/dragonwilds", "appid": "4019830", "log": "RSDragonwilds/Saved/Logs/RSDragonwilds.log"}]'
       NVIDIA_DRIVER_CAPABILITIES: utility
     volumes:
       - ./agent/agent.py:/agent/agent.py:ro

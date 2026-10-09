@@ -66,6 +66,9 @@ Shadows are the two in `--shadow` / `--shadow-hover`; nothing heavier.
   ran as `.step` chips) → tiles (full width).
 - **Tile** (`.card.tile`): `h4` title + `small` subtitle + actions (Table, Open ↗) on the right; KPIs; chart (`.viz`);
   table (`.scroll`, a keyboard-focusable region). Drill-down tiles carry a `↳` crumb saying where they came from.
+- **Server card** (`.server`, `serverCard()`): a game server. Status + uptime, players online as the big number,
+  CPU sparkline and meters, build / protocol / world / last save, a warning strip for recent version mismatches,
+  and the last four joins and leaves. Cards are capped at ~400px+ wide so one server doesn't stretch the page.
 - **Machine card** (`.host`), **service tile** (`.svc`), **badge** (`.badge.ok|warn|bad|plain`), **button** (`.btn`,
   `.btn.go` primary, `.btn.danger`), **ledger table** (`.ledger`), **toast**, **drawer** (logs), **Oracle** (Ctrl K).
 - **Scrolling boxes** (tables, logs) get `tabindex="0" role="region" aria-label="…"` so keyboards can reach them.

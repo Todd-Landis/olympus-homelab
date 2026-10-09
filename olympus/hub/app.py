@@ -32,7 +32,7 @@ NETWORK_QUERY_KEYS = {"device", "person", "domain", "status", "start", "end", "h
 
 log = logging.getLogger("olympus")
 lock = threading.Lock()
-state = {"hosts": {}, "services": {}, "widgets": {}}
+state = {"hosts": {}, "services": {}, "widgets": {}, "server_history": {}}
 
 
 def fetch(url, method="GET", timeout=4, raw=False):
@@ -69,6 +69,9 @@ def poll_host(h):
                                    "mem": round(100 * mem["used"] / mem["total"], 1),
                                    "rx": stats["net"]["rx"], "tx": stats["net"]["tx"],
                                    "gpu": (stats.get("gpu") or {}).get("util")})
+            for g in stats.get("servers", []):
+                hist = state["server_history"].setdefault(f'{name}/{g["name"]}', deque(maxlen=HISTORY))
+                hist.append({"t": stats["time"], "cpu": g.get("cpu"), "mem": g.get("mem"), "players": g.get("player_count")})
     except Exception as e:
         with lock:
             cur.update(online=False, error=agent_error(e))
@@ -178,6 +181,20 @@ def alerts():
     return out
 
 
+def servers_view():
+    """Game servers from every online host's agent, with recent history (call with lock held)."""
+    out = []
+    for h in CONFIG["hosts"]:
+        cur = state["hosts"].get(h["name"], {})
+        if not cur.get("online"):
+            continue
+        mem_total = ((cur.get("stats") or {}).get("memory") or {}).get("total")
+        for g in (cur.get("stats") or {}).get("servers", []):
+            out.append({**g, "host": h["name"], "host_label": h["label"], "host_mem_total": mem_total,
+                        "history": list(state["server_history"].get(f'{h["name"]}/{g["name"]}', []))})
+    return out
+
+
 def host_summary(h, detail=False):
     cur = state["hosts"].get(h["name"], {})
     containers = cur.get("containers", [])
@@ -204,6 +221,7 @@ def api_state():
             "hosts": [host_summary(h) for h in CONFIG["hosts"]],
             "services": [{**s, **state["services"].get(s["id"], {})} for s in CONFIG["services"]],
             "widgets": state["widgets"],
+            "servers": servers_view(),
             "alerts": alerts(),
         }
 
@@ -213,7 +231,8 @@ def host_detail(name):
     if not h:
         raise ValueError("unknown host")
     with lock:
-        return {**host_summary(h, detail=True), "alerts": [a for a in alerts() if a["host"] == h["name"]]}
+        return {**host_summary(h, detail=True), "alerts": [a for a in alerts() if a["host"] == h["name"]],
+                "servers": [g for g in servers_view() if g["host"] == h["name"]]}
 
 
 def container_logs(host, cid, tail):

@@ -77,6 +77,17 @@ art project; keep it subtle, modern and readable. No dark mode.
    `ha-allow-framing.sh` had already set `http: use_x_frame_options: false` in Home Assistant's configuration.yaml on
    horae; it's harmless, but to undo it delete that line (a `.bak-` copy sits next to the file) and restart Home Assistant.
 
+## Game servers
+
+- The helios agent watches game servers listed in `SERVERS` (olympus/docker-compose.yml): systemd unit (running,
+  uptime, CPU, memory), Steam build (`steamapps/appmanifest_<appid>.acf`) and players from the server log.
+- Dragonwilds: unit `dragonwilds`, install `/home/synestri/dragonwilds`, appid 4019830, log
+  `RSDragonwilds/Saved/Logs/RSDragonwilds.log` (rotated to `-backup-<date>.log` on restart). Updates are handled by
+  `dragonwilds-version-watch` (watches the journal for client/server protocol mismatches, runs
+  `~/steamcmd/auto-update-dragonwilds.sh`). The unit runs at low priority (CPUWeight=20, Nice=10) so the AI stack wins.
+- Player lines are matched with Unreal's standard patterns (`agent.py` `UE_PATTERNS`); if the real lines differ, add
+  `"patterns": {"join": "...", "leave": "...", "login": "..."}` to the server's SERVERS entry.
+
 ## How to work here
 
 - UI work: follow `.claude/skills/olympus-design` (design system in `docs/DESIGN.md`, history in `docs/design-log.md`).

@@ -30,6 +30,15 @@
   .host.off .note { font-size: 13px; color: var(--muted); margin-top: 10px; }
 
   .services { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+  /* game servers */
+  .servers { grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); align-items: start; }  /* one server stays card-sized */
+  .server .players { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 14px 0 10px; }
+  .server .players .n { font: 600 28px/1 var(--sans); letter-spacing: -.02em; }
+  .server .players .l { font-weight: 500; }
+  .server .players .who { color: var(--muted); font-size: 13.5px; }
+  .server .note { margin-top: 10px; font-size: 13px; color: var(--warn-ink); background: var(--warn-soft); border-radius: 8px; padding: 6px 10px; }
+  .server .events { list-style: none; margin: 10px 0 0; padding: 8px 0 0; border-top: 1px solid #f1ede5; display: grid; gap: 3px; font-size: 13px; }
+  .server .events li { display: flex; gap: 8px; } .server .events .t { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
   .svc { display: flex; align-items: center; gap: 12px; padding: 12px 14px; text-decoration: none; }
   .svc .ic { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; font: 600 12px var(--sans); flex: none; color: var(--text-2); background: var(--surface-2); border: 1px solid var(--border); }
   .svc .name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -185,7 +194,7 @@
         <button type="button">Who used the network most this week?</button>
         <button type="button">When is the network usually busiest?</button>
         <button type="button">Which sites were blocked most this week?</button>
-        <button type="button">Any errors in the pihole logs today?</button>
+        <button type="button">Is anyone on Dragonwilds?</button>
       </div>
     </div>
     <div class="thread" id="ask-thread" aria-live="polite"></div>
@@ -281,6 +290,28 @@ function svcTile(s) {
     <div class="st"><span><span class="dot ${st}"></span> ${label}</span>${s.url ? `<span class="arrow">↗</span>` : ""}</div>`;
   return s.url ? `<a class="card lift svc" href="${esc(s.url)}" target="_blank" rel="noopener" title="Open ${esc(s.name)}">${inner}</a>` : `<div class="card svc" title="No web page">${inner}</div>`;
 }
+function serverCard(g) {
+  const color = HOSTC[g.host] || "var(--aegean)", now = Date.now() / 1000;
+  const pill = g.running ? `<span class="status-pill"><span class="dot ok"></span>Up ${dur(g.started ? now - g.started : null)}</span>`
+    : `<span class="status-pill"><span class="dot bad"></span>Stopped</span>`;
+  const who = g.player_count ? g.players.map((p) => esc(p.name)).join(", ")
+    : g.last_activity ? `last player ${ago(g.last_activity)}` : g.log_found ? "nobody since the server started" : "server log not found";
+  const memPct = g.mem && g.host_mem_total ? pct(g.mem, g.host_mem_total) : 0;
+  const hist = (g.history || []).map((p) => p.cpu).filter((x) => x != null);
+  const facts = [g.build ? `Build <b>${esc(g.build)}</b>${g.updated ? ` (installed ${new Date(g.updated * 1000).toLocaleDateString([], { month: "short", day: "numeric" })})` : ""}` : "",
+    g.net_version ? `Protocol <b>${g.net_version}</b>` : "", g.world ? `World <b>${esc(g.world)}</b>` : "",
+    g.last_save ? `Saved <b>${ago(g.last_save)}</b>` : ""].filter(Boolean);
+  const mismatch = g.mismatch && now - g.mismatch.t < 86400
+    ? `<div class="note">A player on protocol ${g.mismatch.client} was turned away ${ago(g.mismatch.t)} (server is on ${g.mismatch.server}); the version watcher checks Steam for an update.</div>` : "";
+  const events = (g.events || []).slice(-4).reverse().map((e) => `<li><span>${esc(e.player)} ${e.event}</span><span class="t">${esc(new Date(e.t * 1000).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" }))}</span></li>`).join("");
+  return `<article class="card host server" style="--hc:${color}" aria-label="${esc(g.name)} server">
+    <div class="host-head"><div><h3>${esc(g.name)}</h3><div class="role">${esc(g.game || "Game server")} · on ${esc(g.host_label || g.host)}</div></div>${pill}</div>
+    <div class="players"><span class="n">${g.player_count}</span><span class="l">${g.player_count === 1 ? "player" : "players"} online</span><span class="who">${who}</span></div>
+    ${g.running ? `${spark(hist, color)}<div class="meters">${meter("CPU", Math.min(100, g.cpu ?? 0), g.cpu != null ? Math.round(g.cpu) + "%" : "–")}
+      ${meter("Memory", memPct, g.mem ? bytes(g.mem) : "–")}</div>` : ""}
+    <div class="host-foot">${facts.map((f) => `<span>${f}</span>`).join("")}</div>${mismatch}
+    ${events ? `<ul class="events" aria-label="Recent joins and leaves">${events}</ul>` : ""}</article>`;
+}
 function banner(alerts) {
   if (!alerts.length) return `<div class="banner"><span class="dot ok live"></span>All systems normal</div>`;
   return `<div class="card banner trouble"><b><span class="dot bad"></span>${alerts.length === 1 ? "1 issue" : alerts.length + " issues"}</b><ul>${alerts.map((a) => `<li>${esc(a.text)}</li>`).join("")}</ul></div>`;
@@ -305,6 +336,7 @@ function aiWidget(list) {
 function overview(d) {
   return `${banner(d.alerts)}
     <div class="sec"><h2>Machines</h2></div><div class="grid hosts">${d.hosts.map(hostCard).join("")}</div>
+    ${d.servers?.length ? `<div class="sec"><h2>Servers</h2><small>${d.servers.reduce((n, g) => n + g.player_count, 0) || "No"} players online</small></div><div class="grid servers">${d.servers.map(serverCard).join("")}</div>` : ""}
     <div class="sec"><h2>Services</h2><small>${d.services.filter((s) => s.up).length} of ${d.services.length} up</small></div><div class="grid services">${d.services.map(svcTile).join("")}</div>
     <div class="sec"><h2>Activity</h2></div><div class="grid widgets">${networkWidget(d.widgets.network)}${aiWidget(d.widgets.ollama)}</div>`;
 }
@@ -370,6 +402,7 @@ function hostView(h) {
   const units = s.units.length ? `<h4 style="margin-top:16px">System services</h4><table class="ledger">${s.units.map((u) => `<tr><td><span class="dot ${u.active ? "ok" : "bad"}"></span>&nbsp; ${esc(u.name)}</td><td class="r mono">${u.cpu != null ? u.cpu.toFixed(1) + "%" : ""}</td><td class="r mono">${u.mem != null ? bytes(u.mem) : ""}</td></tr>`).join("")}</table>` : "";
   return head + `<div class="grid stats">${stats}</div>${charts}
     <div class="grid two"><div class="card panel"><h4>Storage</h4>${disks}</div><div class="card panel"><h4>Temperatures</h4><div class="temps">${temps || `<span class="muted">No sensors</span>`}</div>${units}</div></div>
+    ${h.servers?.length ? `<div class="sec"><h2>Servers</h2></div><div class="grid servers">${h.servers.map(serverCard).join("")}</div>` : ""}
     ${svcs}
     <div class="sec"><h2>Containers</h2><small>${h.containers_running} of ${h.containers_total} running</small></div>
     <div class="card panel" style="overflow-x:auto;padding-top:6px" tabindex="0" role="region" aria-label="Containers"><table class="ledger"><tr><th>Container</th><th>State</th><th class="r">CPU</th><th class="r">Memory</th><th class="hide-sm">Ports</th><th></th></tr>${containerRows(h.containers)}</table></div>`;
@@ -599,6 +632,7 @@ function tileNode(t, crumb) {
     return node(`<div class="card tile"><h4>${esc(t.container)} logs <small>${esc(t.host)} · ${t.contains ? `${N(t.lines.length)} lines with “${esc(t.contains)}” of ` : ""}${N(t.read)} read</small></h4>
       <pre class="logs" tabindex="0" role="region" aria-label="${esc(t.container)} log lines">${t.lines.map((l) => logLine(l, t.contains)).join("\n") || `<span class="muted">No matching lines.</span>`}</pre></div>`);
   }
+  if (t.kind === "servers") return node(t.servers.length ? `<div class="grid servers">${t.servers.map(serverCard).join("")}</div>` : `<div class="card tile"><div class="empty">No game servers are reporting.</div></div>`);
   if (t.kind === "models") return node(aiWidget(t.ollama).replace('class="card widget"', 'class="card widget tile"'));
   return null;
 }
