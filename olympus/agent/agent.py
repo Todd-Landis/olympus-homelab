@@ -219,7 +219,8 @@ class Host:
 
 # Unreal Engine's standard lines; a server entry can override any of these with its own "patterns".
 UE_PATTERNS = {
-    "login": r"Login request: \?Name=(?P<name>[^?\s]+).*?userId: (?P<id>\S+)",
+    # e.g. "Login request: ?p=…?pf=Xbox?cpx=1?c?Name=OG Phaaran userId: RedpointEOS:0002… platform: RedpointEOS"
+    "login": r"Login request: .*?\?Name=(?P<name>.+?) userId: (?P<id>\S+)",
     "join": r"Join succeeded: (?P<name>.+?)\s*$",
     "leave": r"UNetConnection::Close: .*?UniqueId: (?P<id>[^,\s]+)",
     "version": r"IsNetworkCompatibleOverride: LocalVersion = (?P<local>\d+), RemoteVersion = (?P<remote>\d+)",
@@ -283,9 +284,7 @@ class GameServer:
             self.events.append({"t": t, "event": "joined", "player": who})
             self.last_activity = t
         if (m := self.pat["leave"].search(s)):
-            who = self.ids.get(m["id"], m["id"])
-            if who not in self.online and len(self.online) == 1:
-                who = next(iter(self.online))  # the only player on must be the one leaving
+            who = self.ids.get(m["id"])  # a connection that never logged in (e.g. rejected for its version) is ignored
             if who in self.online:
                 del self.online[who]
                 self.events.append({"t": t, "event": "left", "player": who})

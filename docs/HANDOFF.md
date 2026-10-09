@@ -85,8 +85,10 @@ art project; keep it subtle, modern and readable. No dark mode.
   `RSDragonwilds/Saved/Logs/RSDragonwilds.log` (rotated to `-backup-<date>.log` on restart). Updates are handled by
   `dragonwilds-version-watch` (watches the journal for client/server protocol mismatches, runs
   `~/steamcmd/auto-update-dragonwilds.sh`). The unit runs at low priority (CPUWeight=20, Nice=10) so the AI stack wins.
-- Player lines are matched with Unreal's standard patterns (`agent.py` `UE_PATTERNS`); if the real lines differ, add
-  `"patterns": {"join": "...", "leave": "...", "login": "..."}` to the server's SERVERS entry.
+- Player lines (`agent.py` `UE_PATTERNS`, checked against real Dragonwilds logs 2026-10-09): `Login request: …?Name=<name>
+  userId: RedpointEOS:<id>` maps id → name (names can contain spaces), `Join succeeded: <name>` is a join, and
+  `UNetConnection::Close: … UniqueId: <id>` is a leave. Disconnects from ids that never logged in are ignored.
+  Another game can override any of these with `"patterns": {...}` in its SERVERS entry.
 
 ## How to work here
 

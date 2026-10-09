@@ -7,8 +7,8 @@ Newest first. Read the last few entries before starting UI work so the same grou
 
 New `serverCard` on the Dashboard (between Machines and Services), on helios' machine page, and as a chat tile
 (`game_servers` tool). Critique pass: a single card stretched the full page width (meters over 1000px) → the grid now
-fills ~400px columns. Audit and motion lint clean. Still to confirm on the real server: the join/leave log lines
-(the agent uses Unreal's standard ones; override per server with "patterns" in SERVERS).
+fills ~400px columns. Audit and motion lint clean. Player lines confirmed against the real log (login pattern fixed for
+names with spaces and the Dragonwilds login prefix).
 
 ## 2026-10-09 — motion pass (Emil Kowalski's design-engineering checklist)
 
