@@ -79,8 +79,9 @@ art project; keep it subtle, modern and readable. No dark mode.
    If it fails, read `journalctl -u dragonwilds` around the attempt.
 3. **todd-desktop** (and other PCs) -> 5016Shoreside when convenient. iPhone: confirm Configure DNS = Automatic.
 4. **Delete the history backups** above once Todd is happy (commands already given to him).
-5. **Tailscale exit node**: `~/exit-node.sh` on horae (IP forwarding + `accept_ra=2` so the Pi's IPv6 survives). Not run/approved yet.
-   After `sudo bash ~/exit-node.sh`, approve in Tailscale admin > Machines > horae > Edit route settings.
+5. ~~Tailscale exit node~~ done 2026-10-09: horae advertises 0.0.0.0/0 + ::/0, approved in the admin console; forwarding
+   persisted in `/etc/sysctl.d/99-tailscale.conf` (with `accept_ra=2`). Tested from this PC (first hop 100.123.23.100).
+   Todd still to try it on the iPhone away from home (Tailscale app > Exit Node > horae).
 6. **Home Assistant**: account + Matter integration (`ws://localhost:5580/ws`) and sharing Apple Home devices (Turn On Pairing
    Mode -> code -> HA) still to check/finish. Then a long-lived token for an HA widget; Todd saves it on the server himself.
 7. **Unidentified devices** in Network (`Device ·16:0c`, `Device ·5e:c5`, `Device ·5a:4e`, `virtual interface ·00:00`, the TP-Link /
