@@ -1,6 +1,6 @@
 # Handoff: olympus-homelab
 
-Last updated 2026-10-09 (evening). Read `README.md` for the repo layout and `docs/NETWORK.md` for the home network.
+Last updated 2026-10-09 (late evening). Read `README.md` for the repo layout and `docs/NETWORK.md` for the home network.
 This file is the current state, what changed recently, open items, how to work here, and traps already hit.
 
 ## What exists now
@@ -18,7 +18,8 @@ This file is the current state, what changed recently, open items, how to work h
 **Running services**
 
 - **horae** `/opt/pihub` (compose in `horae/stack/`): Pi-hole (host network, admin `:8080`, DNS `:53`), Home Assistant (`:8123`,
-  host network), Matter server (`localhost:5580`, healthy), Homepage (`:80`), Olympus agent. Tailscale on, `--accept-dns=false`.
+  host network), Matter server (`localhost:5580`, healthy), Homepage (`:80`), Olympus agent. Tailscale on, `--accept-dns=false`,
+  **Tailscale exit node** (approved; forwarding in `/etc/sysctl.d/99-tailscale.conf`).
 - **helios** `~/pihole-watch` ("Network", http://helios:8095): syncs Pi-hole queries every 5 s into SQLite (`data/watch.db`, 30-day
   retention); block/unblock via the Pi-hole API with an **app password** in `~/pihole-watch/pihole.secret` (600). Also:
   - reads Pi-hole's network table every 5 min (IP -> MAC + maker),
@@ -32,7 +33,8 @@ This file is the current state, what changed recently, open items, how to work h
 
 **Device names in Network** (`~/pihole-watch/data/names.json`): keys may be an IP, a MAC (preferred for devices without a fixed IP),
 or a router hostname (case-insensitive). Unnamed devices show as maker + end of MAC (e.g. `TP-Link ·e3:20`). Order: names.json >
-Tailscale > router hostname (via Pi-hole) > maker fallback.
+Tailscale > router hostname (via Pi-hole) > maker fallback. Renames from the Olympus Dashboard are saved by MAC when Pi-hole
+knows it (IP otherwise), so a name doesn't drift to another device when automatic IPs change.
 
 **Wi-Fi per device** (`~/pihole-watch/data/wifi.json`, copy in `pihole-watch/wifi.example.json`): `wl0.1`/`wl1.1` = 5016Shoreside,
 `wl0.2`/`wl1.2` = SpectrumSetup-DB35 (IoT), `192.168.50.2` = Wired. Devices show their network after they next (re)connect.
@@ -61,34 +63,36 @@ art project; keep it subtle, modern and readable. No dark mode.
 3. **Network Watch**: device names from the router (via Pi-hole), MAC-based labels with maker fallback, Wi-Fi column + filter
    from the router syslog, home-address usage line. Olympus: pool bar + 80% alert.
 4. **History cleared**: all browsing history before the new router (before 2026-10-09 15:58:40) deleted from Network Watch and
-   from Pi-hole's query DB, plus old `192.168.1.x` / `172.18.0.1` names. Backups (Todd deletes them when happy):
-   - helios `~/pihole-watch/data/watch.db.before-router-20261009-165828`, `names.json.before-router-20261009-165828`
-   - horae `/opt/pihub/pihole/pihole-FTL.db.before-router-20261009-170142` (root-owned)
+   from Pi-hole's query DB, plus old `192.168.1.x` / `172.18.0.1` names. The backups were made and then deleted by Todd.
+   Two tiny earlier copies of the device-name list remain on helios (`data/names.json.bak`, `.bak2`); Todd may delete them.
 5. **Odysseus** was down ~12 h after helios rebooted at 04:30 (bind mount of the laptop share failed at boot). Started it and
    added the `@reboot` auto-start script.
 6. `deploy.sh horae-stack` now only copies files and prints the `sudo` command (the Pi's `.env` is root-only).
 7. **Git**: today's commits were made on branch `claude/determined-bell-wxx907` while a parallel session's work (chat, categories,
    game servers, hephaestus agent) sat on `claude/tender-ritchie-d71y1t`. Deploys from the first branch had removed the
-   second's features from helios; the branches were merged, redeployed, and `main` fast-forwarded.
+   second's features from helios; the branches were merged, redeployed, `main` fast-forwarded, and both `claude/*` branches
+   deleted (locally and on GitHub). Dashboard renames now store MACs (see "Device names").
+8. **Tailscale exit node on horae**: `horae/scripts/exit-node.sh` run (IPv4+IPv6 forwarding, `accept_ra=2` so the Pi keeps
+   its IPv6), approved in the admin console (Machines > horae > Edit route settings > Use as exit node). Tested from this PC:
+   first hop 100.123.23.100, then the router. Use: Tailscale app > Exit Node > horae; off = None.
 
 ## Open items
 
-1. ~~Get `main` up to date~~ done 2026-10-09: `main` fast-forwarded to the merge (`910e1b7`), both `claude/*` branches
-   deleted locally and on GitHub. Work on `main` (or a branch you merge back promptly) and check `git status -sb` before deploying.
-2. **Dragonwilds from outside**: not yet confirmed joinable (friend, or phone on mobile data with Wi-Fi + Tailscale off).
+1. **Dragonwilds from outside**: not yet confirmed joinable (friend, or phone on mobile data with Wi-Fi + Tailscale off).
    If it fails, read `journalctl -u dragonwilds` around the attempt.
+2. **Exit node from away**: try it on the iPhone off home Wi-Fi; https://ifconfig.me should show the home IP.
 3. **todd-desktop** (and other PCs) -> 5016Shoreside when convenient. iPhone: confirm Configure DNS = Automatic.
-4. **Delete the history backups** above once Todd is happy (commands already given to him).
-5. ~~Tailscale exit node~~ done 2026-10-09: horae advertises 0.0.0.0/0 + ::/0, approved in the admin console; forwarding
-   persisted in `/etc/sysctl.d/99-tailscale.conf` (with `accept_ra=2`). Tested from this PC (first hop 100.123.23.100).
-   Todd still to try it on the iPhone away from home (Tailscale app > Exit Node > horae).
-6. **Home Assistant**: account + Matter integration (`ws://localhost:5580/ws`) and sharing Apple Home devices (Turn On Pairing
+4. **Home Assistant**: account + Matter integration (`ws://localhost:5580/ws`) and sharing Apple Home devices (Turn On Pairing
    Mode -> code -> HA) still to check/finish. Then a long-lived token for an HA widget; Todd saves it on the server himself.
-7. **Unidentified devices** in Network (`Device ·16:0c`, `Device ·5e:c5`, `Device ·5a:4e`, `virtual interface ·00:00`, the TP-Link /
-   Espressif / AMPAK / Logitech ones): name them in `names.json` by MAC once Todd knows what they are.
-8. `horae.local` resolves only partly on this PC (mDNS); use `horae` or `horae.home`.
-9. Possible: login on Olympus/Network if the tailnet is ever shared. Network now logs **everyone's** browsing at home
+5. **Unidentified devices** in Network (`Device ·16:0c`, `Device ·5e:c5`, `Device ·5a:4e`, `virtual interface ·00:00`, the TP-Link /
+   Espressif / AMPAK / Logitech ones): name them by MAC (Olympus Dashboard or `names.json`) once Todd knows what they are.
+6. **Wi-Fi column** fills in as devices reconnect (joins right after the router reboot weren't logged).
+7. `horae.local` resolves only partly on this PC (mDNS); use `horae` or `horae.home`.
+8. Possible: login on Olympus/Network if the tailnet is ever shared. Network logs **everyone's** browsing at home
    (e.g. Connor's S24, guests); Todd was told it's fair to let household members know.
+
+Done today (details above): router move, Dragonwilds forwards, history clean-up, Odysseus auto-start, branch merge +
+`main` fast-forward, exit node.
 
 ## Olympus chat (from the parallel session, merged 2026-10-09)
 
