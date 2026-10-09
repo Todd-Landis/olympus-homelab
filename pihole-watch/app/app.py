@@ -151,7 +151,7 @@ class UnixHTTPConnection(http.client.HTTPConnection):
 
 
 class Names:
-    """Maps client IPs to friendly names: names.json overrides > Tailscale > IP."""
+    """Maps client IPs to friendly names: names.json > Tailscale > Pi-hole (router DHCP names) > IP."""
 
     def __init__(self):
         self.tailnet = {}
@@ -178,13 +178,22 @@ class Names:
     def mapping(self):
         with self.lock:
             self._refresh()
-            names = {"127.0.0.1": "horae", "::1": "horae", **self.tailnet}
+            with db() as c:
+                lan = {r["ip"]: r["name"] for r in c.execute("SELECT ip, name FROM names")}
+            names = {**lan, "127.0.0.1": "horae", "::1": "horae", **self.tailnet}
             try:
-                names.update(json.loads(NAMES_FILE.read_text()))
+                overrides = json.loads(NAMES_FILE.read_text())
             except FileNotFoundError:
-                pass
+                overrides = {}
             except Exception as e:
                 log.warning("bad %s: %s", NAMES_FILE, e)
+                overrides = {}
+            # Keys are IPs, or router hostnames (case-insensitive) for devices without a fixed address.
+            by_host = {k.lower(): v for k, v in overrides.items()}
+            for ip, host in lan.items():
+                if host.lower() in by_host:
+                    names[ip] = by_host[host.lower()]
+            names.update(overrides)
             return names
 
     def name(self, ip, mapping=None):
@@ -210,6 +219,7 @@ def init_db():
             CREATE INDEX IF NOT EXISTS q_t ON q(t);
             CREATE INDEX IF NOT EXISTS q_base_t ON q(base, t);
             CREATE INDEX IF NOT EXISTS q_client_t ON q(client, t);
+            CREATE TABLE IF NOT EXISTS names (ip TEXT PRIMARY KEY, name TEXT, t REAL);
         """)
 
 
@@ -222,7 +232,7 @@ def sync_once(ph):
         last = c.execute("SELECT MAX(t) FROM q").fetchone()[0]
     # Re-read a minute back so in-progress queries get their final status.
     since = last - 60 if last else now - RETENTION_DAYS * 86400
-    page, start, cursor, rows = 2000, 0, None, []
+    page, start, cursor, rows, seen = 2000, 0, None, [], {}
     while True:
         path = f"/queries?from={int(since)}&until={int(now) + 1}&length={page}&start={start}"
         if cursor is not None:
@@ -232,6 +242,9 @@ def sync_once(ph):
         if cursor is None:
             cursor = resp.get("cursor")
         for x in batch:
+            client = x.get("client") or {}
+            if client.get("ip") and client.get("name"):  # hostname Pi-hole got from the router
+                seen[client["ip"]] = client["name"].split(".")[0]
             domain = (x.get("domain") or "").lower().rstrip(".")
             if x.get("type") == "PTR" or "." not in domain or domain.endswith(".arpa") or domain == "pi.hole":
                 continue
@@ -242,6 +255,7 @@ def sync_once(ph):
         start += page
     with db() as c:
         c.executemany("INSERT OR REPLACE INTO q VALUES (?,?,?,?,?,?,?)", rows)
+        c.executemany("INSERT OR REPLACE INTO names VALUES (?,?,?)", [(ip, n, now) for ip, n in seen.items()])
         c.execute("DELETE FROM q WHERE t < ?", (now - RETENTION_DAYS * 86400,))
     return len(rows)
 

@@ -1,4 +1,6 @@
 {
-  "192.168.1.154": "iphone",
-  "100.110.215.44": "iphone"
+  "192.168.50.2": "Horae",
+  "100.110.215.44": "iPhone",
+  "iPhone": "iPhone",
+  "_comment": "Keys are IP addresses, or router hostnames (case-insensitive) for devices without a fixed address."
 }
