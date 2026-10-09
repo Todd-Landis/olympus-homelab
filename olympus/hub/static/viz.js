@@ -7,7 +7,7 @@
   const SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"];
   const ALLOWED = SERIES[0], BLOCKED = SERIES[1];
   const SEQ = ["#e8f1fc", "#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"];
-  const INK = "#1d1c1a", INK2 = "#4a4741", MUTED = "#77726a", GRID = "#f1ede5", AXIS = "#d8d1c3", SURFACE = "#ffffff";
+  const INK = "#1d1c1a", INK2 = "#4a4741", MUTED = "#6b665e", GRID = "#f1ede5", AXIS = "#d8d1c3", SURFACE = "#ffffff";
   const FONT = '"Inter", "Segoe UI", system-ui, sans-serif';
   const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const N = (n) => (n ?? 0).toLocaleString();
@@ -15,7 +15,7 @@
   const hourLabel = (h) => new Date(2026, 0, 1, h).toLocaleTimeString([], { hour: "numeric" });
 
   const base = () => ({
-    animationDuration: 350,
+    animationDuration: 250, animationEasing: "cubicOut", animationDurationUpdate: 200,
     textStyle: { fontFamily: FONT, color: INK2, fontSize: 12 },
     grid: { left: 8, right: 16, top: 34, bottom: 8, containLabel: true },
     tooltip: {

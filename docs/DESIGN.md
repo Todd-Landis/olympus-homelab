@@ -45,8 +45,16 @@ Shadows are the two in `--shadow` / `--shadow-hover`; nothing heavier.
 
 **Spacing:** 4px base. Section gap 30px (`.sec`), card padding 14–18px, grid gap 12–14px, 16px phone gutter.
 
-**Motion:** number tweening, view transitions between routes, one pulse on live dots. Nothing else moves on its own.
-`prefers-reduced-motion` turns all of it off (`suite.css`).
+**Motion** (rules from Emil Kowalski's design engineering, vendored as `.claude/skills/emil-design-eng`):
+- *Should it move at all?* Keyboard-triggered and many-times-a-day actions don't animate (Ctrl K palette, Esc, number
+  keys, tab switches from the keyboard). Occasional things (drawer, toast, a new chat reply) get a short transition.
+- Curves: `--ease-out` `cubic-bezier(.23,1,.32,1)` for anything entering or responding, `--ease-in-out` for on-screen
+  movement, `--ease-drawer` for the logs drawer. Never `ease-in`. Name the properties; never `transition: all`.
+- Durations: press 160ms, hover/colour 150ms, entrances 200ms, drawer 250ms, number tween 300ms. UI stays ≤ 300ms.
+- Press feedback: `scale(0.97)` on `:active` for buttons, tabs, pills (`0.99` for big cards). Hover movement only inside
+  `@media (hover: hover) and (pointer: fine)`.
+- Entrances use `@starting-style` (opacity 0 + 4px rise), never `scale(0)`. Charts animate 250ms, updates 200ms.
+- Reduced motion = no movement, but fades and colour changes stay (`suite.css`). Live dots stop pulsing.
 
 ## Components
 

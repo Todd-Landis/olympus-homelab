@@ -78,7 +78,13 @@
   pre.logs.nowrap { white-space: pre; }
   pre.logs .ts { color: var(--muted); } pre.logs .err { color: var(--bad-ink); } pre.logs .wrn { color: var(--warn-ink); }
   pre.logs mark { background: #f8e3b5; color: inherit; border-radius: 3px; }
-  ::view-transition-group(*) { animation-duration: .3s; }
+  ::view-transition-group(*) { animation-duration: 200ms; animation-timing-function: var(--ease-out); }
+  .tab, .site, .ask-hints button, .composer .btn { transition: transform 160ms var(--ease-out), background 150ms ease, border-color 150ms ease, color 150ms ease; }
+  .tab:active, .site:active, .ask-hints button:active { transform: scale(0.97); }
+  /* a new reply and its tiles arrive with a short fade and rise (answers the person's question) */
+  .turn .q, .reply, .tiles > * { transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out); }
+  @starting-style { .turn .q, .reply, .tiles > * { opacity: 0; transform: translateY(4px); } }
+  @media (prefers-reduced-motion: reduce) { @starting-style { .turn .q, .reply, .tiles > * { transform: none; } } .tab:active, .site:active, .ask-hints button:active { transform: none; } }
 
 
   /* tabs + links to every hosted site */
@@ -381,9 +387,11 @@ function show() {
   if (route === "dashboard") People.load();
   if (!dash) Ask.focusSoon();
 }
+let keyNav = false;  // set by keyboard shortcuts: those navigate instantly, without a transition
 window.addEventListener("hashchange", () => {
   route = location.hash.replace(/^#\/?/, "");
-  Suite.transition(async () => { show(); lastHtml = ""; await refresh(true); window.scrollTo(0, onDash() ? 0 : document.body.scrollHeight); });
+  const go = async () => { show(); lastHtml = ""; await refresh(true); window.scrollTo(0, onDash() ? 0 : document.body.scrollHeight); };
+  if (keyNav) { keyNav = false; go(); } else Suite.transition(go);
 });
 async function api(path, opts) { const r = await fetch(path, opts); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || r.statusText); return j; }
 function renderSites(services) {
@@ -513,11 +521,11 @@ document.addEventListener("click", (e) => {
 document.addEventListener("keydown", (e) => {
   const typing = /input|textarea|select/i.test(document.activeElement?.tagName || "");
   const palette = e.target.closest?.("#oracle") || document.querySelector("#oracle.open");
-  if (e.key === "Escape" && !palette) { if (logState.open) closeLogs(); else if (route.startsWith("host/")) setRoute("dashboard"); }
-  if (e.key === "Enter" && document.activeElement?.dataset?.host) setRoute("host/" + document.activeElement.dataset.host);
+  if (e.key === "Escape" && !palette) { if (logState.open) closeLogs(); else if (route.startsWith("host/")) { keyNav = true; setRoute("dashboard"); } }
+  if (e.key === "Enter" && document.activeElement?.dataset?.host) { keyNav = true; setRoute("host/" + document.activeElement.dataset.host); }
   if (typing || palette || e.ctrlKey || e.metaKey || e.altKey) return;
   if (!onDash() && e.key.length === 1 && e.key !== "/") Ask.focus();  // on the Chat tab, just start typing
-  else if (onDash() && /^[1-9]$/.test(e.key) && lastState?.hosts[+e.key - 1]) setRoute("host/" + lastState.hosts[+e.key - 1].name);
+  else if (onDash() && /^[1-9]$/.test(e.key) && lastState?.hosts[+e.key - 1]) { keyNav = true; setRoute("host/" + lastState.hosts[+e.key - 1].name); }
 });
 
 // ------------------------------------------------------------------ search: machines, services, containers

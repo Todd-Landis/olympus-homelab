@@ -3,6 +3,25 @@
 Dated notes from `/ui-critique`, `/ui-audit` and `/ui-polish`: what was found, what changed, what was decided.
 Newest first. Read the last few entries before starting UI work so the same ground isn't covered twice.
 
+## 2026-10-09 — motion pass (Emil Kowalski's design-engineering checklist)
+
+Added `.claude/skills/emil-design-eng` (MIT, vendored unchanged) and `ui-audit/scripts/motion-lint.mjs`.
+
+| Before | After | Why |
+| --- | --- | --- |
+| Ctrl K palette `animation: fade .12s` | no animation | keyboard-opened, many times a day |
+| `.card.lift:hover` lift everywhere | lift only under `(hover: hover) and (pointer: fine)` | taps on phones fired hover |
+| no `:active` state on buttons, tabs, pills | `scale(0.97)` (cards `0.99`), 160ms ease-out | presses need an answer |
+| toast `transition: .2s` | `opacity, transform 200ms` ease-out | name properties |
+| meter fill `width .6s ease` | `width 300ms` ease-out curve | ≤ 300ms |
+| number tween 650ms every 5 s | 300ms | seen constantly |
+| view transitions 300ms, also on Esc / number keys | 200ms; none when keyboard-driven | keyboard actions are instant |
+| logs drawer `slide .2s ease-out` | 250ms `--ease-drawer` | drawer curve |
+| chat replies and tiles pop in | `@starting-style` 200ms fade + 4px rise | appearing content shouldn't jump |
+| reduced motion killed everything | movement off, fades and colour kept | reduced ≠ none |
+
+Left on purpose: the live-dot pulse (it is the "connected" signal; stops under reduced motion).
+
 ## 2026-10-09 — first audit and critique (all screens, desktop + phone)
 
 **Audit: 26 blocking → 0.**

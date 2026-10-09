@@ -90,7 +90,7 @@
       const key = el.dataset.tw, to = Number(el.dataset.v), from = twPrev.get(key);
       twPrev.set(key, to);
       if (from == null || from === to || !isFinite(to)) return;
-      const fmt = el.dataset.fmt || "int", t0 = performance.now(), D = 650;
+      const fmt = el.dataset.fmt || "int", t0 = performance.now(), D = 300;  // seen every 5 s: keep it short
       const show = (v) => { el.textContent = fmt === "pct" ? `${Math.round(v)}%` : Math.round(v).toLocaleString(); };
       const step = (now) => {
         const p = Math.min(1, (now - t0) / D), e = 1 - Math.pow(1 - p, 3);

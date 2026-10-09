@@ -13,8 +13,12 @@ The last ten percent. Small, careful, no new features.
    headings ("Save" → "Saved …"); errors say what happened and what to do; empty states say what to do next.
 3. **Edge cases.** Check each changed screen with: no data, an error from the backend, a machine offline, a 60-character
    name, a huge number, a phone. Add any missing ones to the states file so they stay covered.
-4. **Detail sweep.** Alignment to the spacing scale, consistent radii, icons and arrows used the same way everywhere,
+4. **Motion sweep.** Run `ui-audit/scripts/motion-lint.mjs`; then by hand, for each thing that moves: should it animate at
+   all (never for keyboard-triggered or constant actions)? ease-out, ≤ 300ms, exact properties, `:active` press
+   feedback, hover motion only on pointer devices, reduced motion keeps fades. Review in the `emil-design-eng` table
+   format (Before | After | Why).
+5. **Detail sweep.** Alignment to the spacing scale, consistent radii, icons and arrows used the same way everywhere,
    no stray console output, no layout jump while loading (hold old content rather than flashing a skeleton).
-5. **Prove it.** `/ui-audit` with no blocking issues, then screenshots of the changed states (desktop + phone) with
+6. **Prove it.** `/ui-audit` with no blocking issues, then screenshots of the changed states (desktop + phone) with
    `ui-critique/scripts/shoot.mjs`, looked at with the Read tool. Fix, re-shoot, repeat.
-6. **Record** a short dated entry in the design log: what was polished and anything deliberately left.
+7. **Record** a short dated entry in the design log: what was polished and anything deliberately left.

@@ -15,6 +15,10 @@ Mechanical checks only: same input, same report. Taste belongs to `/ui-critique`
 3. Run: `node .claude/skills/ui-audit/scripts/audit.mjs dev/ui/states.mjs [--only a,b] [--json out.json]`
    (from a global install, use `~/.claude/skills/ui-audit/scripts/audit.mjs`).
 
+4. Static motion check (Emil Kowalski's checklist: `transition: all`, ease-in, > 300ms, hover motion on touch screens,
+   `scale(0)` entrances): `node .claude/skills/ui-audit/scripts/motion-lint.mjs dev/ui/states.mjs` (the states file
+   exports `cssFiles`), or pass CSS/HTML files directly. Warnings, not blockers: fix or justify each in the log.
+
 ## Fix
 - **BLOCK** items are failures: fix them at the source (tokens over one-off overrides), then re-run until clean.
   Typical causes: text colour too light for its surface (darken the token, don't shrink the check); `outline: none`

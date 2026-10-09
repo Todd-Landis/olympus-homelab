@@ -14,6 +14,8 @@ description: The Olympus home-lab design system and UI workflow. Use before chan
    the page. Text colours: `--text`, `--text-2`, `--muted`, or an `-ink` token. Never `--faint` for text.
 4. **Run it locally:** `dev/stack.sh start` (Olympus on :9290, Network Watch on :9295, fake machines and a week of fake
    browsing). The chat model there is scripted by keywords (`dev/fakes.py`); add a keyword if you need a new tile.
+   Anything that moves, presses, opens or appears: follow the Motion rules in DESIGN.md, and for anything new or
+   unusual (drawers, gestures, drag, toasts) consult `.claude/skills/emil-design-eng`.
 5. **New screen or tile?** Add a state to `dev/ui/states.mjs` so the checks cover it.
 6. **Check before calling it done:** `/ui-audit` must report no blocking issues; for anything visible and new, run
    `/ui-critique` on the affected states and look at the screenshots yourself, desktop and phone.

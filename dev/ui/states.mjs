@@ -51,3 +51,6 @@ export const states = [
   { name: "machine", url: O + "/#/host/helios", run: (p) => p.waitForSelector(".hero") },
   { name: "netwatch", url: N + "/" },
 ];
+
+// Stylesheets for the static motion check (ui-audit/scripts/motion-lint.mjs).
+export const cssFiles = ["../../suite/suite.css", "../../suite/overrides.css", "../../olympus/hub/static/index.html", "../../pihole-watch/app/static/index.html"];
