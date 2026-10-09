@@ -262,7 +262,7 @@ def sync_loop(ph):
 
 class Filters:
     def __init__(self, params, names):
-        self.hours = max(1, min(int(params.get("hours", ["24"])[0] or 24), RETENTION_DAYS * 24))
+        self.hours = max(1, min(int(float(params.get("hours", ["24"])[0] or 24)), RETENTION_DAYS * 24))
         self.since = time.time() - self.hours * 3600
         self.device = params.get("device", [""])[0]
         self.noise = params.get("noise", ["1"])[0] != "0"  # 1 = hide background
@@ -384,6 +384,69 @@ def api_blocked(f):
     return sorted(merged.values(), key=lambda m: -m["last"])
 
 
+def api_query(params, names):
+    """One flexible, read-only query over the lookup log (used by Olympus' chat).
+
+    device: friendly name or IP; a case-insensitive part of a name works ("iphone").
+    domain: part of a domain ("tiktok", "youtube.com"). status: any | blocked | allowed.
+    start/end: unix seconds (default: the last `hours`, default 24).
+    group: site | domain | device | hour | day | none (none = the lookups themselves, newest first).
+    """
+    p = lambda k, d="": (params.get(k, [d])[0] or d).strip()
+    now = time.time()
+    end = float(p("end") or now)
+    start = float(p("start") or end - float(p("hours", "24")) * 3600)
+    start = max(start, now - RETENTION_DAYS * 86400)
+    group, status, limit = p("group", "site"), p("status", "any"), max(1, min(int(p("limit", "25")), 200))
+    if group not in ("site", "domain", "device", "hour", "day", "none") or status not in ("any", "blocked", "allowed"):
+        raise ValueError("bad group or status")
+    sql, args = ["t >= ?", "t < ?"], [start, end]
+    matched = []
+    if p("device"):
+        want = p("device").lower()
+        ips = [ip for ip, n in names.items() if n.lower() == want or ip == want]
+        if not ips:
+            ips = [ip for ip, n in names.items() if want in n.lower()]
+        matched = sorted({names.get(ip, ip) for ip in ips}) or [p("device")]
+        ips = ips or [p("device")]
+        sql.append("client IN (%s)" % ",".join("?" * len(ips)))
+        args += ips
+    if p("domain"):
+        sql.append(r"domain LIKE ? ESCAPE '\'")
+        args.append("%" + re.sub(r"[%\\]", "", p("domain").lower()).replace("_", r"\_") + "%")
+    if status != "any":
+        sql.append(BLOCKED_SQL if status == "blocked" else f"NOT {BLOCKED_SQL}")
+    if p("noise", "1") != "0" and not p("domain"):  # asking for a domain by name means you want it, background or not
+        sql.append("base NOT IN (%s)" % ",".join("?" * len(NOISE)))
+        args += sorted(NOISE)
+    w = " AND ".join(sql)
+    off = time.localtime(end).tm_gmtoff  # buckets follow the local clock
+    with db() as c:
+        tot = c.execute(f"SELECT COUNT(*) n, SUM({BLOCKED_SQL}) b FROM q WHERE {w}", args).fetchone()
+        if group == "none":
+            rows = [{"t": r["t"], "device": names.get(r["client"], r["client"]), "domain": r["domain"],
+                     "blocked": bool(r["blk"])}
+                    for r in c.execute(f"SELECT t, client, domain, {BLOCKED_SQL} blk FROM q WHERE {w} "
+                                       f"ORDER BY t DESC LIMIT ?", [*args, limit])]
+        elif group in ("hour", "day"):
+            size = 3600 if group == "hour" else 86400
+            rows = [{"t": r["k"] * size - off, "queries": r["n"], "blocked": r["b"] or 0}
+                    for r in c.execute(f"SELECT CAST((t + ?) / ? AS INT) k, COUNT(*) n, SUM({BLOCKED_SQL}) b "
+                                       f"FROM q WHERE {w} GROUP BY k ORDER BY k", [off, size, *args])]
+        else:
+            col = {"site": "base", "domain": "domain", "device": "client"}[group]
+            merged = {}
+            for r in c.execute(f"SELECT {col} k, COUNT(*) n, SUM({BLOCKED_SQL}) b, MIN(t) first, MAX(t) last "
+                               f"FROM q WHERE {w} GROUP BY {col}", args):
+                key = names.get(r["k"], r["k"]) if group == "device" else r["k"]  # one row per device, not per IP
+                m = merged.setdefault(key, {"name": key, "queries": 0, "blocked": 0, "first": r["first"], "last": 0})
+                m["queries"] += r["n"]; m["blocked"] += r["b"] or 0
+                m["first"] = min(m["first"], r["first"]); m["last"] = max(m["last"], r["last"])
+            rows = sorted(merged.values(), key=lambda m: -m["queries"])[:limit]
+    return {"group": group, "start": start, "end": end, "status": status, "device": p("device"), "devices_matched": matched,
+            "domain": p("domain"), "queries": tot["n"], "blocked": tot["b"] or 0, "rows": rows}
+
+
 def site_regex(site):
     return r"(\.|^)" + site.replace(".", r"\.") + "$"
 
@@ -458,6 +521,7 @@ class Handler(BaseHTTPRequestHandler):
                     "/api/site": lambda: api_site(f, params.get("site", [""])[0]),
                     "/api/timeline": lambda: api_timeline(f),
                     "/api/blocked": lambda: api_blocked(f),
+                    "/api/query": lambda: api_query(params, f.names),
                     "/api/blocklist": lambda: api_blocklist(ph),
                 }
             else:

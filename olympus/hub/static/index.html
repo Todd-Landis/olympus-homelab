@@ -100,11 +100,62 @@
   .deck.collapsed .deck-stage, .deck.collapsed .deck-grip { display: none; }
   .deck.collapsed .deck-bar { border-bottom: 0; }
   @media (max-width: 760px) { .deck-tools .wide { display: none; } }
+
+  /* ask: chat about the home lab; answers come with live tiles */
+  .ask-bar { display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 14px; }
+  .ask-bar:focus-within { border-color: var(--border-strong); box-shadow: var(--shadow-hover); }
+  .ask-bar > svg { width: 17px; height: 17px; color: var(--muted); flex: none; }
+  .ask-bar input { flex: 1; min-width: 0; border: 0; outline: none; background: none; font: 400 15px var(--sans); color: var(--text); padding: 8px 0; }
+  .ask-bar input::placeholder { color: var(--faint); }
+  .ask-bar select { font-size: 12.5px; padding: 5px 8px; max-width: 170px; }
+  .ask-bar .btn.go { padding: 6px 14px; }
+  .ask-meta { display: flex; justify-content: flex-end; margin-top: 8px; }
+  .ask-thread { display: grid; gap: 22px; margin-top: 10px; grid-template-columns: minmax(0, 1fr); }
+  .ask-thread:empty { display: none; }
+  .turn { display: grid; gap: 10px; padding-bottom: 22px; border-bottom: 1px solid var(--border); grid-template-columns: minmax(0, 1fr); }
+  .turn .q { justify-self: end; max-width: min(80%, 640px); background: var(--surface); border: 1px solid var(--border); border-radius: 12px 12px 4px 12px; padding: 8px 13px; font-weight: 500; }
+  .steps { display: flex; flex-wrap: wrap; gap: 6px; }
+  .steps:empty { display: none; }
+  .step { display: inline-flex; align-items: center; gap: 7px; font: 500 12px var(--sans); color: var(--muted); padding: 3px 10px; border: 1px solid var(--border); border-radius: 99px; background: var(--surface-2); }
+  .step.err { color: var(--bad); border-color: #efd2cf; background: var(--bad-soft); }
+  .step .dot { width: 6px; height: 6px; }
+  .tiles { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+  .tile .scroll { max-height: 360px; overflow: auto; margin-top: 10px; }
+  .tiles:empty { display: none; }
+  .tile { padding: 14px 16px; }
+  .tile h4 { margin: 0 0 10px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font: 600 13.5px var(--sans); }
+  .tile h4 small { font-weight: 400; color: var(--muted); }
+  .tile h4 a { margin-left: auto; font: 500 12.5px var(--sans); color: var(--accent); text-decoration: none; }
+  .tile pre.logs { max-height: 340px; overflow: auto; }
+  .ranked { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 2px; }
+  .ranked li { position: relative; display: flex; gap: 12px; align-items: baseline; padding: 5px 8px; font-size: 13.5px; border-radius: 6px; overflow: hidden; }
+  .ranked li i { position: absolute; inset: 0 auto 0 0; background: #eef3f7; z-index: 0; }
+  .ranked li span { position: relative; z-index: 1; }
+  .ranked .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ranked .v { font: 500 12.5px var(--mono); color: var(--text-2); }
+  .ranked .b { font: 500 11.5px var(--mono); color: var(--bad); min-width: 64px; text-align: right; }
+  .axis { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); margin-top: -6px; }
+  .turn .a { max-width: 75ch; }
+  .turn .a p { margin: 0 0 8px; } .turn .a p:last-child { margin: 0; }
+  .turn .a.err { color: var(--bad); }
+  .turn .a code { font: .9em var(--mono); background: var(--surface-2); padding: 1px 4px; border-radius: 4px; }
+  .turn .note { font-size: 13px; color: var(--muted); }
+  @media (max-width: 760px) { .ask-bar select { max-width: 112px; } }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div id="masthead"></div>
+  <section class="ask" id="ask" aria-label="Ask about the home lab">
+    <form class="card ask-bar" id="ask-form" autocomplete="off">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 4.5h12a1.5 1.5 0 0 1 1.5 1.5v6.5A1.5 1.5 0 0 1 16 14H9l-4 3v-3H4a1.5 1.5 0 0 1-1.5-1.5V6A1.5 1.5 0 0 1 4 4.5Z" stroke-linejoin="round"/></svg>
+      <input id="ask-q" maxlength="2000" aria-label="Ask about the home lab" placeholder="Ask about the home lab: “what did the iPhone look up after 11 pm?”">
+      <select id="ask-backend" aria-label="Model"></select>
+      <button class="btn go" id="ask-go">Ask</button>
+    </form>
+    <div class="ask-meta" id="ask-meta" hidden><button class="back" id="ask-new">New conversation</button></div>
+    <div class="ask-thread" id="ask-thread" aria-live="polite"></div>
+  </section>
   <main>
     <div id="view" aria-live="polite"></div>
     <section class="deck" id="deck" hidden aria-label="Apps">
@@ -332,16 +383,17 @@ function renderLogs(jump) {
   const q = $("#log-filter").value.trim().toLowerCase(), body = $("#log-body");
   const atBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 40;
   const lines = q ? logState.lines.filter((l) => l.toLowerCase().includes(q)) : logState.lines;
-  $("#logs").innerHTML = lines.map((l) => {
-    const m = /^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)\.\d+Z?\s(.*)$/.exec(l);
-    let ts = "", txt = l;
-    if (m) { ts = new Date(m[1] + "Z").toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" }); txt = m[2]; }
-    let b = esc(txt);
-    if (q) b = b.replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), (x) => `<mark>${x}</mark>`);
-    const cls = /\b(error|fatal|exception|traceback|failed)\b/i.test(txt) ? "err" : /\b(warn|warning)\b/i.test(txt) ? "wrn" : "";
-    return `${ts ? `<span class="ts">${ts}</span>  ` : ""}<span class="${cls}">${b}</span>`;
-  }).join("\n") || `<span class="muted">${q ? "No matching lines." : "No log output."}</span>`;
+  $("#logs").innerHTML = lines.map((l) => logLine(l, q)).join("\n") || `<span class="muted">${q ? "No matching lines." : "No log output."}</span>`;
   if ($("#log-follow").checked && (atBottom || jump)) body.scrollTop = body.scrollHeight;
+}
+function logLine(l, q) {
+  const m = /^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)\.\d+Z?\s(.*)$/.exec(l);
+  let ts = "", txt = l;
+  if (m) { ts = new Date(m[1] + "Z").toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" }); txt = m[2]; }
+  let b = esc(txt);
+  if (q) b = b.replace(new RegExp(esc(q).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), (x) => `<mark>${x}</mark>`);
+  const cls = /\b(error|fatal|exception|traceback|failed)\b/i.test(txt) ? "err" : /\b(warn|warning)\b/i.test(txt) ? "wrn" : "";
+  return `${ts ? `<span class="ts">${ts}</span>  ` : ""}<span class="${cls}">${b}</span>`;
 }
 async function loadLogs(first) {
   if (!logState.open) return;
@@ -494,6 +546,123 @@ const Deck = (() => {
   return { update, select, reveal, can, count: () => apps.length };
 })();
 let deckScroll = false;
+
+// ------------------------------------------------------------------ ask: questions answered with live tiles
+const when = (t) => new Date(t * 1000).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+function md(s) {
+  const h = esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`([^`\n]+)`/g, "<code>$1</code>");
+  return h.split(/\n{2,}/).map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`).join("");
+}
+function netTile(t) {
+  const who = t.devices_matched?.length ? t.devices_matched.join(", ") : t.device || "All devices";
+  const what = [who, t.domain ? `“${t.domain}”` : "", t.status !== "any" ? `${t.status} only` : "", `${when(t.start)} – ${when(t.end)}`].filter(Boolean).join(" · ");
+  let body;
+  if (!t.rows.length) body = `<div class="empty">Nothing matched.</div>`;
+  else if (t.group === "none") {
+    body = `<div class="scroll"><table class="ledger"><tr><th>Time</th><th>Device</th><th>Domain</th><th></th></tr>${t.rows.map((r) =>
+      `<tr><td class="mono" style="white-space:nowrap">${esc(when(r.t))}</td><td>${esc(r.device)}</td><td style="word-break:break-all">${esc(r.domain)}</td><td>${r.blocked ? `<span class="badge bad">blocked</span>` : ""}</td></tr>`).join("")}</table></div>`;
+  } else if (t.group === "hour" || t.group === "day") {
+    const max = Math.max(1, ...t.rows.map((r) => r.queries));
+    body = `<div class="bars" style="height:72px">${t.rows.map((r) => `<span style="height:${(100 * r.queries / max).toFixed(1)}%" title="${esc(when(r.t))}: ${N(r.queries)} lookups, ${N(r.blocked)} blocked"></span>`).join("")}</div>
+      <div class="axis"><span>${esc(when(t.rows[0].t))}</span><span>${esc(when(t.rows.at(-1).t))}</span></div>`;
+  } else {
+    const max = Math.max(1, ...t.rows.map((r) => r.queries));
+    body = `<ul class="ranked">${t.rows.map((r) => `<li title="first ${esc(when(r.first))} · last ${esc(when(r.last))}"><i style="width:${(100 * r.queries / max).toFixed(1)}%"></i>
+      <span class="name">${esc(r.name)}</span><span class="b">${r.blocked ? N(r.blocked) + " blocked" : ""}</span><span class="v">${N(r.queries)}</span></li>`).join("")}</ul>`;
+  }
+  return `<div class="card tile"><h4>Network <small>${esc(what)}</small><a href="http://helios:8095/" data-svc="netwatch">Open</a></h4>
+    <div class="kpis"><div class="kpi"><div class="n">${N(t.queries)}</div><div class="l">lookups</div></div><div class="kpi"><div class="n">${N(t.blocked)}</div><div class="l">blocked</div></div></div>${body}</div>`;
+}
+function tileHtml(t) {
+  if (t.kind === "network") return netTile(t);
+  if (t.kind === "status") {
+    const down = t.services.filter((s) => s.up === false && !awayHosts.has(s.host));
+    return `<div class="grid tiles">${t.alerts.length ? banner(t.alerts) : ""}<div class="grid hosts">${t.hosts.map(hostCard).join("")}</div>
+      ${down.length ? `<div class="grid services">${down.map(svcTile).join("")}</div>` : `<div class="banner"><span class="dot ok"></span>All ${t.services.length} services up</div>`}</div>`;
+  }
+  if (t.kind === "host") {
+    const h = t.host, rows = (h.containers || []).map((c) => `<tr><td><div class="cname">${esc(c.name)}</div><div class="img">${esc(c.image)}</div></td>
+      <td><span class="badge ${c.health === "unhealthy" ? "bad" : c.state === "running" ? "ok" : "plain"}">${esc(c.health === "unhealthy" ? "unhealthy" : c.state)}</span></td>
+      <td class="r mono">${c.cpu != null ? c.cpu.toFixed(1) + "%" : "–"}</td><td class="r mono">${c.mem ? bytes(c.mem.used) : "–"}</td></tr>`).join("");
+    return `<div class="grid tiles">${hostCard(h)}${rows ? `<div class="card panel" style="overflow-x:auto;padding-top:6px"><table class="ledger"><tr><th>Container</th><th>State</th><th class="r">CPU</th><th class="r">Memory</th></tr>${rows}</table></div>` : ""}</div>`;
+  }
+  if (t.kind === "logs") {
+    return `<div class="card tile"><h4>${esc(t.container)} logs <small>${esc(t.host)} · ${t.contains ? `${N(t.lines.length)} lines with “${esc(t.contains)}” of ` : ""}${N(t.read)} read</small></h4>
+      <pre class="logs">${t.lines.map((l) => logLine(l, t.contains)).join("\n") || `<span class="muted">No matching lines.</span>`}</pre></div>`;
+  }
+  if (t.kind === "models") return aiWidget(t.ollama).replace('class="card widget"', 'class="card widget tile"');
+  return "";
+}
+
+const Ask = (() => {
+  const form = $("#ask-form"), input = $("#ask-q"), sel = $("#ask-backend"), go = $("#ask-go"), thread = $("#ask-thread");
+  let conv = null, busy = false;
+  if (matchMedia("(max-width: 760px)").matches) input.placeholder = "Ask about the home lab";
+  let saved = null; try { saved = localStorage.getItem("olympus.ask.backend"); } catch {}
+  api("/api/chat/info").then(({ backends }) => {
+    sel.innerHTML = backends.map((b) => `<option value="${esc(b.id)}" ${b.available ? "" : "disabled"} title="${esc(b.why || "")}">${esc(b.label)}${b.available ? "" : " (not set up)"}</option>`).join("");
+    const ok = backends.filter((b) => b.available);
+    if (ok.some((b) => b.id === saved)) sel.value = saved; else if (ok.length) sel.value = ok[0].id;
+    sel.hidden = backends.length < 2;
+  }).catch(() => { sel.innerHTML = ""; });
+  sel.addEventListener("change", () => { try { localStorage.setItem("olympus.ask.backend", sel.value); } catch {} });
+  $("#ask-new").addEventListener("click", () => { conv = null; thread.innerHTML = ""; $("#ask-meta").hidden = true; input.focus(); });
+
+  function handle(ev, turn) {
+    const steps = turn.querySelector(".steps"), tiles = turn.querySelector(".tiles"), a = turn.querySelector(".a");
+    if (!["start", "tile"].includes(ev.type)) steps.querySelector(".wait")?.remove();  // the model is working again
+    if (ev.type === "start") conv = ev.conv;
+    else if (ev.type === "step") steps.insertAdjacentHTML("beforeend", `<span class="step" data-step="${esc(ev.id)}"><span class="dot warn live"></span>${esc(ev.label)}</span>`);
+    else if (ev.type === "step_done") {
+      const el = steps.querySelector(`[data-step="${CSS.escape(ev.id)}"]`);
+      if (el) { el.classList.toggle("err", !!ev.error); el.querySelector(".dot").className = `dot ${ev.error ? "bad" : "ok"}`; if (ev.error) el.title = ev.error; }
+    }
+    else if (ev.type === "tile") { tiles.insertAdjacentHTML("beforeend", tileHtml(ev.tile)); tween(tiles); }
+    else if (ev.type === "note") tiles.insertAdjacentHTML("beforebegin", `<div class="note">${md(ev.text)}</div>`);
+    else if (ev.type === "answer") a.innerHTML = md(ev.text);
+    else if (ev.type === "error") { a.classList.add("err"); a.textContent = ev.text; }
+    if (ev.type === "step" || ev.type === "step_done") {
+      if (!steps.querySelector(".dot.live")) steps.insertAdjacentHTML("beforeend", `<span class="step wait"><span class="dot warn live"></span>Thinking</span>`);
+    }
+  }
+  async function ask(q) {
+    busy = true; go.disabled = true; go.textContent = "…";
+    const turn = document.createElement("article");
+    turn.className = "turn";
+    turn.innerHTML = `<div class="q">${esc(q)}</div><div class="steps"><span class="step wait"><span class="dot warn live"></span>Thinking</span></div><div class="tiles"></div><div class="a"></div>`;
+    thread.prepend(turn); $("#ask-meta").hidden = false;
+    try {
+      const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: q, backend: sel.value, conv }) });
+      if (!r.ok || !r.body) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
+      const reader = r.body.getReader(), dec = new TextDecoder();
+      let buf = "";
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let i;
+        while ((i = buf.indexOf("\n\n")) >= 0) {
+          const chunk = buf.slice(0, i); buf = buf.slice(i + 2);
+          if (chunk.startsWith("data: ")) handle(JSON.parse(chunk.slice(6)), turn);
+        }
+      }
+    } catch (e) { handle({ type: "error", text: "Couldn't ask: " + e.message }, turn); }
+    finally {
+      turn.querySelector(".steps .wait")?.remove();
+      const a = turn.querySelector(".a");
+      if (!a.textContent.trim()) { a.classList.add("err"); a.textContent = "No answer came back."; }
+      busy = false; go.disabled = false; go.textContent = "Ask";
+    }
+  }
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const q = input.value.trim();
+    if (!q || busy || !sel.value) return;
+    input.value = "";
+    ask(q);
+  });
+  return { focus: () => input.focus() };
+})();
 // Show an app in the panel (from a tile, the nav, or search). Returns false if it can't be embedded, so callers fall back to a new tab.
 function openApp(id) {
   if (!Deck.select(id)) return false;

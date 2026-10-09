@@ -5,6 +5,8 @@ pihole.secret
 *.env
 .pihole-password
 hub.env
+*.key
+secrets/
 
 # Live data and generated files
 data/

@@ -57,6 +57,14 @@ art project; keep it subtle, modern and readable. No dark mode.
    set `HOST_NAME`, `BIND` to its Tailscale IP). AMD GPU, so no nvidia-smi; temps come from hwmon.
 6. Daytime look of the sun arc not visually verified (only seen at night).
 7. Possible: add a login to Olympus/Network if the tailnet is ever shared.
+9. **Olympus chat** (the "Ask" bar at the top of http://helios/): questions answered by a model that calls read-only
+   tools (machine status, container logs, Network Watch's new `/api/query`) and shows each result as a tile.
+   - Local model is `chat.ollama.model` in `olympus/hub/config.json` (must be installed on helios: `ollama pull <name>`).
+   - Claude option: the hub image (`olympus/image/Dockerfile`) has the `anthropic` package; the key lives in
+     `~/olympus/secrets/anthropic.key` on helios (created by Todd, never committed or pasted in chat):
+     `read -rsp "Anthropic API key: " k && printf '%s' "$k" > ~/olympus/secrets/anthropic.key && chmod 600 ~/olympus/secrets/anthropic.key; unset k`
+     Model `claude-opus-5-5`, with server-side refusal fallback on. Only the rows a question looks up leave the house.
+   - Read-only by design for now; action buttons (restart, block) in tiles are a planned next step.
 8. **Olympus Apps panel** (tabs of iframes above Services) is built but not deployed: `./deploy.sh olympus netwatch horae-theme`.
    For Home Assistant to load there, copy `horae/scripts/ha-allow-framing.sh` to horae and run `sudo bash ~/ha-allow-framing.sh`.
    Pi-hole blocks framing too and its login cookie is SameSite=Strict, so it stays a new-tab link.

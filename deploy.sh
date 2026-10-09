@@ -7,11 +7,13 @@ cd "$(dirname "$0")"
 mkdir -p build
 
 olympus() {
+  ssh helios 'mkdir -p ~/olympus/image ~/olympus/secrets && chmod 700 ~/olympus/secrets'  # before compose, or Docker makes secrets/ root-owned
   scp -q olympus/docker-compose.yml helios:olympus/
-  scp -q olympus/hub/app.py olympus/hub/config.json helios:olympus/hub/
+  scp -q olympus/image/Dockerfile helios:olympus/image/
+  scp -q olympus/hub/app.py olympus/hub/chat.py olympus/hub/config.json helios:olympus/hub/
   scp -q olympus/hub/static/index.html suite/suite.css suite/suite.js helios:olympus/hub/static/
   scp -q olympus/agent/agent.py helios:olympus/agent/
-  ssh helios 'cd ~/olympus && docker compose up -d && docker restart olympus olympus-agent >/dev/null'
+  ssh helios 'cd ~/olympus && docker compose up -d --build && docker restart olympus olympus-agent >/dev/null'
   echo "olympus: deployed"
 }
 netwatch() {

@@ -18,6 +18,8 @@ from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import chat
+
 HERE = Path(__file__).parent
 CONFIG = json.loads(Path(os.environ.get("CONFIG", HERE / "config.json")).read_text())
 BIND = os.environ.get("BIND", "0.0.0.0")
@@ -217,6 +219,18 @@ def api_state():
         }
 
 
+def host_detail(name):
+    h = next((h for h in CONFIG["hosts"] if h["name"] == name), None)
+    if not h:
+        raise ValueError("unknown host")
+    with lock:
+        return {**host_summary(h, detail=True), "alerts": [a for a in alerts() if a["host"] == h["name"]]}
+
+
+def container_logs(host, cid, tail):
+    return fetch(f"{agent_for(host)}/containers/{cid}/logs?tail={int(tail)}", timeout=15).get("lines", [])
+
+
 def agent_for(host):
     h = next((h for h in CONFIG["hosts"] if h["name"] == host), None)
     if not h or not h.get("agent"):
@@ -257,8 +271,9 @@ class Handler(BaseHTTPRequestHandler):
                 h = next((h for h in CONFIG["hosts"] if h["name"] == m.group(1)), None)
                 if not h:
                     return self._send(404, {"error": "unknown host"})
-                with lock:
-                    return self._send(200, {**host_summary(h, detail=True), "alerts": [a for a in alerts() if a["host"] == h["name"]]})
+                return self._send(200, host_detail(h["name"]))
+            if url.path == "/api/chat/info":
+                return self._send(200, {"backends": chat.backends()})
             if url.path == "/api/logs":
                 cid = q.get("id", [""])[0]
                 if not re.match(r"^[0-9a-f]{12,64}$", cid):
@@ -275,7 +290,10 @@ class Handler(BaseHTTPRequestHandler):
         # JSON-only: browsers won't send this cross-site without a CORS preflight.
         if not self.headers.get("Content-Type", "").startswith("application/json"):
             return self._send(415, {"error": "JSON only"})
-        if urllib.parse.urlparse(self.path).path != "/api/action":
+        path = urllib.parse.urlparse(self.path).path
+        if path == "/api/chat":
+            return self.chat()
+        if path != "/api/action":
             return self._send(404, {"error": "not found"})
         try:
             body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
@@ -293,12 +311,40 @@ class Handler(BaseHTTPRequestHandler):
             self._send(502, {"error": agent_error(e)})
 
 
+    def chat(self):
+        """Server-sent events: one JSON object per step, tile and answer, as they happen."""
+        try:
+            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
+        except ValueError:
+            return self._send(400, {"error": "bad JSON"})
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+
+        def emit(ev):
+            self.wfile.write(f"data: {json.dumps(ev, default=str)}\n\n".encode())
+            self.wfile.flush()
+        try:
+            chat.ask(body, emit)
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # the page went away mid-answer
+        except Exception as e:
+            log.exception("chat failed")
+            try:
+                emit({"type": "error", "text": f"Something broke: {e}"})
+            except OSError:
+                pass
+
+
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     run_every(5, poll_host, CONFIG["hosts"])
     run_every(10, poll_containers, CONFIG["hosts"])
     run_every(20, check_service, CONFIG["services"])
     run_every(15, poll_widgets)
+    chat.init(CONFIG, api_state, host_detail, container_logs)
     log.info("Olympus on %s:%d with %d hosts, %d services", BIND, PORT, len(CONFIG["hosts"]), len(CONFIG["services"]))
     ThreadingHTTPServer((BIND, PORT), Handler).serve_forever()
 

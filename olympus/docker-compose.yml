@@ -2,7 +2,8 @@
 #   Start/update:  cd ~/olympus && docker compose up -d
 services:
   olympus:
-    image: python:3.14-slim
+    build: ./image                     # python + the anthropic package (chat's Claude option)
+    image: olympus-hub
     container_name: olympus
     restart: unless-stopped
     init: true                         # tini as PID 1: stops/restarts take ~1 s, not 10
@@ -14,6 +15,7 @@ services:
       TZ: America/New_York
     volumes:
       - ./hub:/app:ro
+      - ./secrets:/secrets:ro          # anthropic.key (optional): see docs/HANDOFF.md
 
   olympus-agent:
     image: python:3.14-slim
