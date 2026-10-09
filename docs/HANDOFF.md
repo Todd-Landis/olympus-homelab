@@ -57,6 +57,9 @@ art project; keep it subtle, modern and readable. No dark mode.
    set `HOST_NAME`, `BIND` to its Tailscale IP). AMD GPU, so no nvidia-smi; temps come from hwmon.
 6. Daytime look of the sun arc not visually verified (only seen at night).
 7. Possible: add a login to Olympus/Network if the tailnet is ever shared.
+8. **Olympus Apps panel** (tabs of iframes above Services) is built but not deployed: `./deploy.sh olympus netwatch horae-theme`.
+   For Home Assistant to load there, copy `horae/scripts/ha-allow-framing.sh` to horae and run `sudo bash ~/ha-allow-framing.sh`.
+   Pi-hole blocks framing too and its login cookie is SameSite=Strict, so it stays a new-tab link.
 
 ## How to work here
 
