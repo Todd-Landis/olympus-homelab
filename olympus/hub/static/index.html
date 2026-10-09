@@ -174,7 +174,9 @@ function networkWidget(n) {
       <div class="kpi"><div class="n">${tw("nb", n.blocked)}</div><div class="l">blocked (${pct(n.blocked, n.queries).toFixed(0)}%)</div></div>
       <div class="kpi"><div class="n">${tw("ns", n.sites)}</div><div class="l">sites</div></div></div>
     <div class="bars" aria-hidden="true">${n.series.map((v) => `<span style="height:${(100 * v / max).toFixed(1)}%"></span>`).join("")}</div>
-    <ul class="leaders">${n.top.map((t) => `<li><span class="name">${esc(t.base)}</span><span class="v">${N(t.n)}</span></li>`).join("")}</ul></div>`;
+    <ul class="leaders">${n.top.map((t) => `<li><span class="name">${esc(t.base)}</span><span class="v">${N(t.n)}</span></li>`).join("")}</ul>
+    ${n.pool ? `<div class="meter" style="margin-top:12px;grid-template-columns:120px 1fr 70px"><span class="k">Home addresses</span>
+      <div class="bar"><i class="${lvl(n.pool.pct)}" style="width:${Math.min(100, n.pool.pct)}%"></i></div><span class="v">${n.pool.in_use} / ${n.pool.size}</span></div>` : ""}</div>`;
 }
 function aiWidget(list) {
   if (!list?.length) return "";

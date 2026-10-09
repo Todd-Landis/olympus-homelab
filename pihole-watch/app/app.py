@@ -34,6 +34,9 @@ TS_SOCKET = os.environ.get("TS_SOCKET", "/var/run/tailscale/tailscaled.sock")
 RETENTION_DAYS = int(os.environ.get("RETENTION_DAYS", "30"))
 SYNC_SECONDS = int(os.environ.get("SYNC_SECONDS", "60"))
 PORT = int(os.environ.get("PORT", "8095"))
+SYSLOG_PORT = int(os.environ.get("SYSLOG_PORT", "5514"))            # the ASUS sends its system log here
+WIFI_FILE = Path(os.environ.get("WIFI_FILE", "/data/wifi.json"))    # {"wl0": "5016Shoreside", "wl0.1": ...}
+DHCP_POOL = os.environ.get("DHCP_POOL", "192.168.50.100-192.168.50.254")
 STATIC = Path(__file__).with_name("static")
 
 SUITE_FILES = {"/suite.css": "text/css; charset=utf-8", "/suite.js": "text/javascript; charset=utf-8"}
@@ -227,7 +230,12 @@ def init_db():
             CREATE INDEX IF NOT EXISTS q_client_t ON q(client, t);
             CREATE TABLE IF NOT EXISTS names (ip TEXT PRIMARY KEY, name TEXT, t REAL);
             CREATE TABLE IF NOT EXISTS devices (ip TEXT PRIMARY KEY, mac TEXT, vendor TEXT, t REAL);
+            CREATE TABLE IF NOT EXISTS wifi (mac TEXT PRIMARY KEY, iface TEXT, connected INTEGER, t REAL);
         """)
+        try:  # added later: when Pi-hole last saw a query from this IP
+            c.execute("ALTER TABLE devices ADD COLUMN last REAL")
+        except sqlite3.OperationalError:
+            pass
 
 
 STATE = {"last_sync": None, "last_error": None, "synced_rows": 0}
@@ -276,9 +284,85 @@ def sync_devices(ph):
             continue
         for a in d.get("ips", []):
             if a.get("ip"):
-                rows.append((a["ip"], mac, d.get("macVendor") or "", now))
+                rows.append((a["ip"], mac, d.get("macVendor") or "", now, a.get("lastSeen") or d.get("lastQuery") or 0))
     with db() as c:
-        c.executemany("INSERT OR REPLACE INTO devices VALUES (?,?,?,?)", rows)
+        c.executemany("INSERT OR REPLACE INTO devices (ip, mac, vendor, t, last) VALUES (?,?,?,?,?)", rows)
+
+
+# ---------------------------------------------------------------- router log (Wi-Fi network per device)
+
+# ASUS wireless events, e.g. "wlceventd: wlceventd_proc_event(...): wl1.1: Assoc AA:BB:CC:DD:EE:FF, status: ..."
+WIFI_EVENT = re.compile(r"\b(wl\d+(?:\.\d+)?)\s*:\s*(ReAssoc|Assoc|Auth|Deauth|Disassoc)\w*\s+([0-9a-f]{2}(?::[0-9a-f]{2}){5})", re.I)
+ROUTER_LOG = {"lines": 0, "last": None, "events": 0}
+
+
+def syslog_loop():
+    """Receive the router's syslog over UDP; keep the raw lines (capped) and record Wi-Fi joins/leaves."""
+    raw = Path(DB_PATH).with_name("router.log")
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(("0.0.0.0", SYSLOG_PORT))
+    log.info("listening for router syslog on udp/%d", SYSLOG_PORT)
+    while True:
+        try:
+            data, addr = sock.recvfrom(8192)
+            line = data.decode(errors="replace").strip()
+            ROUTER_LOG.update(lines=ROUTER_LOG["lines"] + 1, last=time.time())
+            if raw.exists() and raw.stat().st_size > 2_000_000:
+                raw.replace(raw.with_suffix(".log.1"))
+            with raw.open("a") as fh:
+                fh.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {addr[0]} {line}\n")
+            m = WIFI_EVENT.search(line)
+            if m:
+                iface, event, mac = m.group(1), m.group(2).lower(), m.group(3).lower()
+                joined = event in ("assoc", "reassoc", "auth")
+                with db() as c:
+                    if joined:
+                        c.execute("INSERT OR REPLACE INTO wifi VALUES (?,?,?,?)", (mac, iface, 1, time.time()))
+                    else:
+                        c.execute("UPDATE wifi SET connected = 0, t = ? WHERE mac = ? AND iface = ?", (time.time(), mac, iface))
+                ROUTER_LOG["events"] += 1
+        except Exception as e:
+            log.warning("syslog: %s", e)
+
+
+def wifi_labels():
+    try:
+        return json.loads(WIFI_FILE.read_text())
+    except Exception:
+        return {}
+
+
+def lan_info():
+    """ip -> {mac, vendor, wifi, last} for devices Pi-hole has seen; wifi = network name (or radio, until named)."""
+    labels = wifi_labels()
+    with db() as c:
+        wifi = {r["mac"]: r["iface"] for r in c.execute("SELECT mac, iface FROM wifi")}
+        rows = c.execute("SELECT ip, mac, vendor, last FROM devices").fetchall()
+    out = {}
+    for r in rows:
+        iface = wifi.get(r["mac"])
+        out[r["ip"]] = {"mac": r["mac"], "vendor": r["vendor"], "last": r["last"],
+                        "wifi": labels.get(iface, iface) if iface else None}
+    return out
+
+
+def ip_num(ip):
+    try:
+        a, b, c_, d = (int(x) for x in ip.split("."))
+        return (a << 24) | (b << 16) | (c_ << 8) | d
+    except ValueError:
+        return None
+
+
+def api_lan():
+    """Address-pool usage (devices seen in the last 24 h, matching the router's 24 h leases) and Wi-Fi networks."""
+    lo, hi = (ip_num(x) for x in DHCP_POOL.split("-"))
+    info, now = lan_info(), time.time()
+    in_use = sorted({ip for ip, v in info.items() if (n := ip_num(ip)) and lo <= n <= hi and (v["last"] or 0) > now - 86400})
+    size = hi - lo + 1
+    return {"pool": {"range": DHCP_POOL, "size": size, "in_use": len(in_use), "pct": round(100 * len(in_use) / size, 1)},
+            "networks": sorted({v["wifi"] for v in info.values() if v["wifi"]}),
+            "router_log": ROUTER_LOG}
 
 
 VENDOR_TRIM = re.compile(r"[,.]?\s+(inc|corp|corporation|corporate|co|ltd|limited|llc|gmbh|pte|systems|technology|technologies|electronics|international)\b.*$", re.I)
@@ -315,13 +399,19 @@ class Filters:
         self.hours = max(1, min(int(params.get("hours", ["24"])[0] or 24), RETENTION_DAYS * 24))
         self.since = time.time() - self.hours * 3600
         self.device = params.get("device", [""])[0]
+        self.wifi = params.get("wifi", [""])[0]
         self.noise = params.get("noise", ["1"])[0] != "0"  # 1 = hide background
         self.names = names
+        self.lan = lan_info()
 
     def where(self, extra=None):
         sql, args = ["t >= ?"], [self.since]
         if self.device:
             ips = [ip for ip, n in self.names.items() if n == self.device] or [self.device]
+            sql.append("client IN (%s)" % ",".join("?" * len(ips)))
+            args += ips
+        if self.wifi:
+            ips = [ip for ip, v in self.lan.items() if v["wifi"] == self.wifi] or ["-"]
             sql.append("client IN (%s)" % ",".join("?" * len(ips)))
             args += ips
         if self.noise:
@@ -349,7 +439,8 @@ def api_summary(f):
             a).fetchall()
     devices = {}
     for r in per_client:
-        d = devices.setdefault(f.names.get(r["client"], r["client"]), {"queries": 0, "blocked": 0, "sites": 0, "last": 0, "ips": []})
+        d = devices.setdefault(f.names.get(r["client"], r["client"]), {"queries": 0, "blocked": 0, "sites": 0, "last": 0, "ips": [], "wifi": None})
+        d["wifi"] = d["wifi"] or (f.lan.get(r["client"]) or {}).get("wifi")
         d["queries"] += r["n"]; d["blocked"] += r["b"] or 0
         d["sites"] = max(d["sites"], r["s"]); d["last"] = max(d["last"], r["last"]); d["ips"].append(r["client"])
     nb = int(f.hours * 3600 // bucket) + 1
@@ -503,6 +594,7 @@ class Handler(BaseHTTPRequestHandler):
                     "/api/health": lambda: {**STATE, "retention_days": RETENTION_DAYS,
                                             "has_secret": SECRET_FILE.is_file()},
                     "/api/devices": lambda: sorted(set(f.names.values())),
+                    "/api/lan": api_lan,
                     "/api/summary": lambda: api_summary(f),
                     "/api/sites": lambda: api_sites(f),
                     "/api/site": lambda: api_site(f, params.get("site", [""])[0]),
@@ -541,6 +633,7 @@ def main():
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     server.pihole, server.names = PiHole(), Names()
     threading.Thread(target=sync_loop, args=(server.pihole,), daemon=True).start()
+    threading.Thread(target=syslog_loop, daemon=True).start()
     log.info("pihole-watch on :%d, Pi-hole at %s, keeping %d days", PORT, PIHOLE_API, RETENTION_DAYS)
     server.serve_forever()
 

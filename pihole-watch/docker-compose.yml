@@ -14,11 +14,14 @@ services:
       PIHOLE_URL: http://100.123.23.100:8080   # horae over Tailscale
       RETENTION_DAYS: "30"
       SYNC_SECONDS: "5"            # pull from Pi-hole every 5 s
+      DHCP_POOL: 192.168.50.100-192.168.50.254   # ASUS automatic-address range (for the 80% alert)
+      SYSLOG_PORT: "5514"
       TZ: America/New_York
     ports:
       - "100.88.170.59:8095:8095"   # helios' Tailscale IP only, not the LAN
+      - "514:5514/udp"              # router syslog (ASUS: System Log > Remote Log Server = 192.168.50.3)
     volumes:
       - ./app:/app:ro
-      - ./data:/data                 # watch.db (+ optional names.json)
+      - ./data:/data                 # watch.db, router.log, names.json, wifi.json
       - ./pihole.secret:/run/secrets/pihole:ro
       - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock

@@ -104,6 +104,7 @@ def poll_widgets():
                             "top": s["top"][:6], "series": [p["queries"] for p in s["series"]],
                             "devices": [{"name": d["name"], "queries": d["queries"]} for d in s["devices"][:5]],
                             "url": nw}
+            w["network"]["pool"] = fetch(nw + "/api/lan", timeout=5)["pool"]  # home-address usage
         except Exception as e:
             w["network"] = {"error": str(e), "url": nw}
     models = []
@@ -170,6 +171,10 @@ def alerts():
         host_cfg = next((h for h in CONFIG["hosts"] if h["name"] == s["host"]), {})
         if r and not r["up"] and not host_cfg.get("sometimes_off"):
             out.append({"level": "bad", "host": s["host"], "text": f"{s['name']} is down ({r['code']})"})
+    pool = (state["widgets"].get("network") or {}).get("pool")
+    if pool and pool["pct"] >= 80:
+        out.append({"level": "warn", "host": "horae",
+                    "text": f"Home network is running low on addresses: {pool['in_use']} of {pool['size']} in use ({pool['pct']:.0f}%)"})
     return out
 
 
