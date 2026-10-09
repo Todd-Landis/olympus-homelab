@@ -69,12 +69,12 @@ art project; keep it subtle, modern and readable. No dark mode.
 6. `deploy.sh horae-stack` now only copies files and prints the `sudo` command (the Pi's `.env` is root-only).
 7. **Git**: today's commits were made on branch `claude/determined-bell-wxx907` while a parallel session's work (chat, categories,
    game servers, hephaestus agent) sat on `claude/tender-ritchie-d71y1t`. Deploys from the first branch had removed the
-   second's features from helios; the branches were merged and redeployed (see open item 1).
+   second's features from helios; the branches were merged, redeployed, and `main` fast-forwarded.
 
 ## Open items
 
-1. **Get `main` up to date** with `claude/determined-bell-wxx907` (fast-forward; `main` has nothing the branch lacks), then check
-   out `main` in `C:\Users\Todd\olympus-homelab`. There is also an older branch `claude/tender-ritchie-d71y1t` to review.
+1. ~~Get `main` up to date~~ done 2026-10-09: `main` fast-forwarded to the merge (`910e1b7`), both `claude/*` branches
+   deleted locally and on GitHub. Work on `main` (or a branch you merge back promptly) and check `git status -sb` before deploying.
 2. **Dragonwilds from outside**: not yet confirmed joinable (friend, or phone on mobile data with Wi-Fi + Tailscale off).
    If it fails, read `journalctl -u dragonwilds` around the attempt.
 3. **todd-desktop** (and other PCs) -> 5016Shoreside when convenient. iPhone: confirm Configure DNS = Automatic.
