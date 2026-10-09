@@ -60,6 +60,9 @@ art project; keep it subtle, modern and readable. No dark mode.
 9. **Olympus chat** (the "Ask" bar at the top of http://helios/): questions answered by a model that calls read-only
    tools (machine status, container logs, Network Watch's new `/api/query`) and shows each result as a tile.
    - Local model is `chat.ollama.model` in `olympus/hub/config.json` (must be installed on helios: `ollama pull <name>`).
+   - **Local only for now** (Todd's choice; a Pro subscription doesn't cover API use). To turn Claude back on, add
+     `"claude": {"model": "claude-opus-5-5", "effort": "medium", "key_file": "/secrets/anthropic.key"}` under `chat`
+     in config.json and create the key file below.
    - Claude option: the hub image (`olympus/image/Dockerfile`) has the `anthropic` package; the key lives in
      `~/olympus/secrets/anthropic.key` on helios (created by Todd, never committed or pasted in chat):
      `read -rsp "Anthropic API key: " k && printf '%s' "$k" > ~/olympus/secrets/anthropic.key && chmod 600 ~/olympus/secrets/anthropic.key; unset k`
