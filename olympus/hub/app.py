@@ -28,7 +28,7 @@ HISTORY = 180  # samples kept per host (15 min at 5 s)
 SUITE_FILES = {"/suite.css": "text/css; charset=utf-8", "/suite.js": "text/javascript; charset=utf-8",
                "/viz.js": "text/javascript; charset=utf-8",
                "/echarts-6.1.0.min.js": "text/javascript; charset=utf-8"}  # vendored from suite/vendor
-NETWORK_QUERY_KEYS = {"device", "person", "domain", "status", "start", "end", "hours", "group", "limit", "noise"}
+NETWORK_QUERY_KEYS = {"device", "person", "domain", "category", "status", "start", "end", "hours", "group", "limit", "noise"}
 
 log = logging.getLogger("olympus")
 lock = threading.Lock()

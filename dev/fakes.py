@@ -104,6 +104,7 @@ class Ollama(BaseHTTPRequestHandler):
 
 SCRIPT = [
     ("dragonwilds", ("game_servers", {})),
+    ("adult", ("network_query", {"category": "adult", "group": "device", "hours": 168})),
     ("who used", ("network_query", {"group": "person", "hours": 168})),
     ("busiest", ("network_query", {"group": "weekday_hour", "hours": 168})),
     ("blocked", ("network_query", {"group": "site", "status": "blocked", "hours": 168})),
@@ -158,6 +159,12 @@ def seed_network(path):
                     dom, status = rnd.choice(subs.get(base, ["www." + base, base])), "FORWARDED"
                 rows.append((i, t0 + rnd.random() * 3600, ip, dom, base, status, "A"))
                 i += 1
+    # a few late-night lookups of made-up domains that dev/stack.sh puts on the "adult" category list
+    for k in range(40):
+        t0 = NOW - rnd.randint(0, 6) * 86400 - rnd.choice([1, 2, 3]) * 3600 + rnd.random() * 1800
+        dom = rnd.choice(["www.adult-video.example", "cdn.adult-video.example", "nsfw-gallery.example"])
+        rows.append((i, t0, rnd.choice(["192.168.1.140", "192.168.1.140", "192.168.1.171"]), dom, ".".join(dom.split(".")[-2:]), "FORWARDED", "A"))
+        i += 1
     db.executemany("INSERT INTO q VALUES (?,?,?,?,?,?,?)", rows)
     db.commit()
     return len(rows)
@@ -171,6 +178,8 @@ def serve(port, handler):
 if __name__ == "__main__":
     RUN.mkdir(parents=True, exist_ok=True)
     n = seed_network(RUN / "watch.db")
+    (RUN / "adult-list.txt").write_text("# stand-in for the OISD NSFW list (dev only)\n" + "\n".join(
+        ["adult-video.example", "nsfw-gallery.example"] + [f"filler{k}.example" for k in range(200)]) + "\n")
     names = RUN / "names.json"
     if not names.exists():  # starting point for the Devices & people editor; edits made while testing persist per run dir
         names.write_text(json.dumps({"192.168.1.154": "Todd's iPhone", "100.110.215.44": "Todd's iPhone", "192.168.1.140": "desktop-ajq2ikv",

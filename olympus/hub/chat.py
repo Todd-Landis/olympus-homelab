@@ -40,6 +40,9 @@ How to answer:
 - For browsing questions use network_query. Domains are matched by any part ("tiktok" finds www.tiktok.com).
   Device names can be partial ("iphone"). For a person ("what has Sam been doing") use the person filter, which covers
   all their devices. Call network_devices if a device or person doesn't match anything.
+- category "adult" limits a network query to domains on a public adult-content list (OISD NSFW). It matches DNS
+  lookups, which can also come from ads, link previews or embeds, so say "looked up", not "visited", and report
+  what matched plainly, without judgement.
 - Times are local. Each question ends with the current time; work out start/end from it.
 - You can only look. If Todd asks you to restart, block or change something, say where in Olympus or Network to do it.
 - Plain text only; **bold** is fine. No headings, no tables."""
@@ -183,7 +186,7 @@ def t_network(a):
     if not H.network_url:
         raise ValueError("Network Watch isn't configured")
     q = {"group": a.get("group") or "site", "status": a.get("status") or "any", "limit": int(a.get("limit") or 25)}
-    for k in ("device", "domain", "person"):
+    for k in ("device", "domain", "person", "category"):
         if a.get(k):
             q[k] = str(a[k])
     start, end = parse_local(a.get("start")), parse_local(a.get("end"))
@@ -208,7 +211,7 @@ def t_network(a):
         mrows = [{"name": x["name"], "lookups": x["queries"], "blocked": x["blocked"], "first": local(x["first"]), "last": local(x["last"])} for x in rows]
     model = {"from": local(r["start"]), "to": local(r["end"]), "device_filter": r["device"] or None,
              "devices_matched": r["devices_matched"], "person_filter": r["person"] or None, "people_matched": r["people_matched"],
-             "domain_filter": r["domain"] or None, "status": r["status"],
+             "domain_filter": r["domain"] or None, "category_filter": r.get("category") or None, "status": r["status"],
              "total_lookups": r["queries"], "total_blocked": r["blocked"], "grouped_by": r["group"], "rows": mrows}
     return model, {"kind": "network", **r}
 
@@ -271,6 +274,7 @@ TOOLS = [
      {"device": {"type": "string", "description": "Device name or part of it, e.g. 'iphone'. Leave out for all devices."},
       "person": {"type": "string", "description": "A person's name: covers every device they use. Leave out for everyone."},
       "domain": {"type": "string", "description": "Any part of a domain, e.g. 'tiktok' or 'youtube.com'"},
+      "category": {"type": "string", "enum": ["adult"], "description": "Only domains on a content list: 'adult' = adult-content sites. Leave out otherwise."},
       "status": {"type": "string", "enum": ["any", "blocked", "allowed"], "description": "Default any"},
       "hours": {"type": "number", "description": "Look back this many hours from now (default 24). Ignored if start is set."},
       "start": {"type": "string", "description": "Optional window start, local time 'YYYY-MM-DD HH:MM'"},

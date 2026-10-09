@@ -7,6 +7,8 @@ Stdlib only. Config via environment:
   DB_PATH             SQLite file (default /data/watch.db)
   NAMES_FILE          optional JSON {"ip": "friendly name"} overrides (default /data/names.json)
   PEOPLE_FILE         JSON {"device name": ["person", ...]} (default people.json next to NAMES_FILE)
+  CATEGORY_LISTS      JSON {"category": "list URL or file path"} of domain lists to tag lookups with
+                      (default: adult = OISD NSFW). Lists refresh daily into <data>/categories/.
   TS_SOCKET           tailscaled socket, used to name tailnet devices
   RETENTION_DAYS      days of history to keep (default 30)
   SYNC_SECONDS        how often to pull from Pi-hole (default 60)
@@ -31,6 +33,9 @@ PIHOLE_API = os.environ.get("PIHOLE_URL", "http://100.123.23.100:8080").rstrip("
 SECRET_FILE = Path(os.environ.get("PIHOLE_SECRET_FILE", "/run/secrets/pihole"))
 DB_PATH = os.environ.get("DB_PATH", "/data/watch.db")
 NAMES_FILE = Path(os.environ.get("NAMES_FILE", "/data/names.json"))
+CATEGORY_LISTS = json.loads(os.environ.get("CATEGORY_LISTS", "") or '{"adult": "https://nsfw.oisd.nl/domainswild2"}')
+CATEGORY_DIR = Path(DB_PATH).parent / "categories"
+CATEGORY_REFRESH = 86400  # seconds between list downloads
 PEOPLE_FILE = Path(os.environ.get("PEOPLE_FILE", str(NAMES_FILE.with_name("people.json"))))
 TS_SOCKET = os.environ.get("TS_SOCKET", "/var/run/tailscale/tailscaled.sock")
 RETENTION_DAYS = int(os.environ.get("RETENTION_DAYS", "30"))
@@ -289,6 +294,8 @@ def init_db():
             CREATE INDEX IF NOT EXISTS q_t ON q(t);
             CREATE INDEX IF NOT EXISTS q_base_t ON q(base, t);
             CREATE INDEX IF NOT EXISTS q_client_t ON q(client, t);
+            CREATE TABLE IF NOT EXISTS domcat (domain TEXT PRIMARY KEY, category TEXT);  -- every domain checked; NULL = no list
+            CREATE INDEX IF NOT EXISTS domcat_cat ON domcat(category);
         """)
 
 
@@ -335,6 +342,96 @@ def sync_loop(ph):
             STATE["last_error"] = str(e)
             log.warning("sync failed: %s", e)
         time.sleep(SYNC_SECONDS)
+
+
+# ---------------------------------------------------------------- category lists (e.g. adult content)
+# A list names domains; a lookup matches if its domain or any parent domain is listed. Domains are classified once
+# into the domcat table (new ones every minute; everything again when a list changes), so queries are a simple join.
+
+CATEGORY_STATE = {}
+
+
+def parse_list(text):
+    """Plain domains, "*.domain", hosts files ("0.0.0.0 domain") and Adblock ("||domain^") all work."""
+    out = set()
+    for line in text.splitlines():
+        line = line.split("#", 1)[0].strip()
+        if not line or line.startswith("!") or line.startswith("["):
+            continue
+        parts = line.split()
+        d = parts[1] if len(parts) > 1 and re.match(r"^(0\.0\.0\.0|127\.0\.0\.1|::1?)$", parts[0]) else parts[0]
+        d = d.lower().removeprefix("||").removeprefix("*.").split("^", 1)[0].rstrip(".")
+        if "." in d and DOMAIN_RE.match(d):
+            out.add(d)
+    return out
+
+
+def refresh_lists(force=False):
+    """Download stale lists (keeping the last good copy on failure) and load them. Returns True if anything changed."""
+    CATEGORY_DIR.mkdir(parents=True, exist_ok=True)
+    changed = False
+    for name, src in CATEGORY_LISTS.items():
+        path, st = CATEGORY_DIR / f"{name}.txt", CATEGORY_STATE.setdefault(name, {"domains": set(), "mtime": None, "error": None})
+        try:
+            if src.startswith(("http://", "https://")):
+                if force or not path.exists() or time.time() - path.stat().st_mtime > CATEGORY_REFRESH:
+                    req = urllib.request.Request(src, headers={"User-Agent": "pihole-watch (home network monitor)"})
+                    with urllib.request.urlopen(req, timeout=120) as r:
+                        text = r.read().decode("utf-8", "replace")
+                    if len(parse_list(text)) < 100:
+                        raise ValueError("downloaded list looks empty")
+                    tmp = path.with_suffix(".tmp")
+                    tmp.write_text(text)
+                    tmp.replace(path)
+            else:
+                path = Path(src)
+            st["error"] = None
+        except Exception as e:
+            st["error"] = f"update failed, using the last copy: {e}" if path.exists() else f"no list yet: {e}"
+            log.warning("category %s: %s", name, e)
+        if path.exists() and path.stat().st_mtime != st["mtime"]:
+            st["domains"], st["mtime"] = parse_list(path.read_text(errors="replace")), path.stat().st_mtime
+            log.info("category %s: %d domains", name, len(st["domains"]))
+            changed = True
+    return changed
+
+
+def category_of(domain):
+    labels = domain.split(".")
+    suffixes = [".".join(labels[i:]) for i in range(len(labels) - 1)]
+    for name, st in CATEGORY_STATE.items():
+        if any(s in st["domains"] for s in suffixes):
+            return name
+    return None
+
+
+def classify(all_again=False):
+    with db() as c:
+        if all_again:
+            c.execute("DELETE FROM domcat")
+        new = [r[0] for r in c.execute("SELECT DISTINCT q.domain FROM q LEFT JOIN domcat d ON d.domain = q.domain WHERE d.domain IS NULL")]
+        c.executemany("INSERT OR REPLACE INTO domcat VALUES (?, ?)", [(d, category_of(d)) for d in new])
+    return len(new)
+
+
+def category_loop():
+    last_refresh = 0
+    while True:
+        try:
+            changed = False
+            if time.time() - last_refresh > 3600:  # checks hourly; downloads only when a list is a day old
+                changed, last_refresh = refresh_lists(), time.time()
+            classify(all_again=changed)
+        except Exception as e:
+            log.warning("categories: %s", e)
+        time.sleep(60)
+
+
+def api_categories():
+    with db() as c:
+        counts = dict(c.execute("SELECT category, COUNT(*) FROM domcat WHERE category IS NOT NULL GROUP BY category").fetchall())
+    return {name: {"source": CATEGORY_LISTS[name], "list_domains": len(st["domains"]), "updated": st["mtime"],
+                   "error": st["error"], "domains_seen": counts.get(name, 0)} for name, st in CATEGORY_STATE.items()}
 
 
 # ---------------------------------------------------------------- queries for the API
@@ -505,7 +602,12 @@ def api_query(params, names):
         args.append("%" + re.sub(r"[%\\]", "", p("domain").lower()).replace("_", r"\_") + "%")
     if status != "any":
         sql.append(BLOCKED_SQL if status == "blocked" else f"NOT {BLOCKED_SQL}")
-    if p("noise", "1") != "0" and not p("domain"):  # asking for a domain by name means you want it, background or not
+    if p("category"):
+        if p("category") not in CATEGORY_LISTS:
+            raise ValueError(f"unknown category; known: {', '.join(CATEGORY_LISTS)}")
+        sql.append("domain IN (SELECT domain FROM domcat WHERE category = ?)")
+        args.append(p("category"))
+    if p("noise", "1") != "0" and not p("domain") and not p("category"):  # asked for by name or category: show it all
         sql.append("base NOT IN (%s)" % ",".join("?" * len(NOISE)))
         args += sorted(NOISE)
     w = " AND ".join(sql)
@@ -546,7 +648,7 @@ def api_query(params, names):
                 for m in rows:
                     m["people"] = pm.get(m["name"], [])
     return {"group": group, "start": start, "end": end, "status": status, "device": p("device"), "devices_matched": matched,
-            "person": p("person"), "people_matched": people_matched,
+            "person": p("person"), "people_matched": people_matched, "category": p("category"),
             "domain": p("domain"), "queries": tot["n"], "blocked": tot["b"] or 0, "rows": rows}
 
 
@@ -619,6 +721,7 @@ class Handler(BaseHTTPRequestHandler):
                     "/api/health": lambda: {**STATE, "retention_days": RETENTION_DAYS,
                                             "has_secret": SECRET_FILE.is_file()},
                     "/api/devices": lambda: sorted(set(f.names.values())),
+                    "/api/categories": api_categories,
                     "/api/summary": lambda: api_summary(f),
                     "/api/sites": lambda: api_sites(f),
                     "/api/site": lambda: api_site(f, params.get("site", [""])[0]),
@@ -660,6 +763,7 @@ def main():
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     server.pihole, server.names = PiHole(), Names()
     threading.Thread(target=sync_loop, args=(server.pihole,), daemon=True).start()
+    threading.Thread(target=category_loop, daemon=True).start()
     log.info("pihole-watch on :%d, Pi-hole at %s, keeping %d days", PORT, PIHOLE_API, RETENTION_DAYS)
     server.serve_forever()
 

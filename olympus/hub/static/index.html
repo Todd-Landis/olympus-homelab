@@ -595,7 +595,7 @@ const NW_URL = "http://helios:8095/";
 
 function networkNode(t, crumb) {
   const who = t.people_matched?.length ? t.people_matched.join(", ") : t.devices_matched?.length ? t.devices_matched.join(", ") : t.person || t.device || "Everyone";
-  const what = [who, t.domain ? `“${t.domain}”` : "", t.status !== "any" ? `${t.status} only` : "", `${when(t.start)} – ${when(t.end)}`].filter(Boolean).join(" · ");
+  const what = [who, t.category ? `${t.category}-content list` : "", t.domain ? `“${t.domain}”` : "", t.status !== "any" ? `${t.status} only` : "", `${when(t.start)} – ${when(t.end)}`].filter(Boolean).join(" · ");
   const tableFirst = t.group === "none";
   return node(`<div class="card tile">${crumb ? `<div class="crumb">↳ ${esc(crumb)}</div>` : ""}
     <h4>Network <small>${esc(what)}</small><span class="acts">${t.rows.length ? `<button type="button" data-table>${tableFirst ? "Hide table" : "Table"}</button>` : ""}<a href="${NW_URL}" target="_blank" rel="noopener">Open ↗</a></span></h4>
@@ -604,7 +604,7 @@ function networkNode(t, crumb) {
 }
 // Clicking a chart asks Network Watch directly (no model): the deeper view appears right under the chart.
 async function drill(parent, t, params, label) {
-  const q = { start: t.start, end: t.end, status: t.status === "any" ? "" : t.status, device: t.device, person: t.person, domain: t.domain, ...params };
+  const q = { start: t.start, end: t.end, status: t.status === "any" ? "" : t.status, device: t.device, person: t.person, domain: t.domain, category: t.category, ...params };
   const qs = new URLSearchParams(Object.entries(q).filter(([, v]) => v != null && v !== ""));
   const wait = node(`<div class="card tile loading"><div class="crumb">↳ ${esc(label)}</div><div class="empty">Loading…</div></div>`);
   parent.after(wait);

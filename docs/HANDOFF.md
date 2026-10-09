@@ -77,6 +77,15 @@ art project; keep it subtle, modern and readable. No dark mode.
    `ha-allow-framing.sh` had already set `http: use_x_frame_options: false` in Home Assistant's configuration.yaml on
    horae; it's harmless, but to undo it delete that line (a `.bak-` copy sits next to the file) and restart Home Assistant.
 
+## Content categories (Network Watch)
+
+- `CATEGORY_LISTS` (default `{"adult": "https://nsfw.oisd.nl/domainswild2"}`, the OISD NSFW list) is downloaded daily
+  to `~/pihole-watch/data/categories/`; the last good copy is kept if a download fails. Every domain seen is tagged
+  once in the `domcat` table (a domain matches if it or a parent domain is listed). `/api/categories` shows list size,
+  last update, errors and how many seen domains matched. The chat's network query takes `category: "adult"`.
+- It matches DNS lookups, not page views: ads, previews and embeds can trigger them. Pi-hole could also *block* the same
+  list (add it as an adlist in Pi-hole) if that's ever wanted; this only reports.
+
 ## Game servers
 
 - The helios agent watches game servers listed in `SERVERS` (olympus/docker-compose.yml): systemd unit (running,

@@ -25,6 +25,7 @@ cp suite/suite.css suite/suite.js pihole-watch/app/static/
 $PY dev/fakes.py "$RUN" > "$RUN/fakes.log" 2>&1 & echo $! > "$RUN/fakes.pid"
 for _ in $(seq 40); do grep -q "fakes up" "$RUN/fakes.log" 2>/dev/null && break; sleep 0.25; done
 (cd pihole-watch/app && DB_PATH="../../$RUN/watch.db" NAMES_FILE="../../$RUN/names.json" PORT=9295 PIHOLE_SECRET_FILE=/nonexistent \
+  CATEGORY_LISTS="{\"adult\": \"../../$RUN/adult-list.txt\"}" \
   exec $PY app.py) > "$RUN/netwatch.log" 2>&1 & echo $! > "$RUN/netwatch.pid"
 (cd olympus/hub && CONFIG=../../dev/config.json BIND=127.0.0.1 PORT=9290 exec $PY app.py) > "$RUN/olympus.log" 2>&1 & echo $! > "$RUN/olympus.pid"
 for _ in $(seq 40); do curl -sf http://127.0.0.1:9290/api/state >/dev/null 2>&1 && curl -sf http://127.0.0.1:9295/api/health >/dev/null 2>&1 && break; sleep 0.25; done

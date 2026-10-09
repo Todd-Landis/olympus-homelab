@@ -28,6 +28,7 @@ export const states = [
   { name: "chat-logs", url: O + "/", run: (p) => ask(p, "Any errors in the pihole logs?") },
   { name: "chat-machine", url: O + "/", run: (p) => ask(p, "How is horae doing?") },
   { name: "chat-servers", url: O + "/", run: (p) => ask(p, "Is anyone on Dragonwilds?") },
+  { name: "chat-adult", url: O + "/", run: (p) => ask(p, "Has anything looked up adult sites this week?") },
   {
     name: "chat-drilldown", url: O + "/",
     run: async (p) => {
