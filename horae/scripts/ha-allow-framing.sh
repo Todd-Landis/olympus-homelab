@@ -60,7 +60,7 @@ echo "== Restart Home Assistant =="
 docker restart homeassistant >/dev/null
 printf "Waiting for it to come back"
 for _ in $(seq 60); do
-  if headers=$(curl -fsSI --max-time 3 http://127.0.0.1:8123/ 2>/dev/null); then
+  if headers=$(curl -fsS --max-time 3 -D - -o /dev/null http://127.0.0.1:8123/ 2>/dev/null); then
     echo
     if grep -qi '^x-frame-options' <<<"$headers"; then
       echo "Home Assistant is up but still sends X-Frame-Options. Check $CONF."; exit 1
