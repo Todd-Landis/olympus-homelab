@@ -6,6 +6,9 @@ Stdlib only. Config via environment:
   PIHOLE_SECRET_FILE  file holding a Pi-hole *app password* (default /run/secrets/pihole)
   DB_PATH             SQLite file (default /data/watch.db)
   NAMES_FILE          optional JSON {"ip": "friendly name"} overrides (default /data/names.json)
+  PEOPLE_FILE         JSON {"device name": ["person", ...]} (default people.json next to NAMES_FILE)
+  CATEGORY_LISTS      JSON {"category": "list URL or file path"} of domain lists to tag lookups with
+                      (default: adult = OISD NSFW). Lists refresh daily into <data>/categories/.
   TS_SOCKET           tailscaled socket, used to name tailnet devices
   RETENTION_DAYS      days of history to keep (default 30)
   SYNC_SECONDS        how often to pull from Pi-hole (default 60)
@@ -30,6 +33,10 @@ PIHOLE_API = os.environ.get("PIHOLE_URL", "http://100.123.23.100:8080").rstrip("
 SECRET_FILE = Path(os.environ.get("PIHOLE_SECRET_FILE", "/run/secrets/pihole"))
 DB_PATH = os.environ.get("DB_PATH", "/data/watch.db")
 NAMES_FILE = Path(os.environ.get("NAMES_FILE", "/data/names.json"))
+CATEGORY_LISTS = json.loads(os.environ.get("CATEGORY_LISTS", "") or '{"adult": "https://nsfw.oisd.nl/domainswild2"}')
+CATEGORY_DIR = Path(DB_PATH).parent / "categories"
+CATEGORY_REFRESH = 86400  # seconds between list downloads
+PEOPLE_FILE = Path(os.environ.get("PEOPLE_FILE", str(NAMES_FILE.with_name("people.json"))))
 TS_SOCKET = os.environ.get("TS_SOCKET", "/var/run/tailscale/tailscaled.sock")
 RETENTION_DAYS = int(os.environ.get("RETENTION_DAYS", "30"))
 SYNC_SECONDS = int(os.environ.get("SYNC_SECONDS", "60"))
@@ -209,6 +216,87 @@ class Names:
         return (mapping or self.mapping()).get(ip, ip)
 
 
+# ---------------------------------------------------------------- devices and the people who use them
+# A device is every IP that maps to one name. Renaming writes names.json for all of its IPs (so giving a LAN IP
+# the same name as a Tailscale device merges them); people.json says who uses each device.
+
+registry_lock = threading.Lock()
+NAME_RE = re.compile(r"^[^\x00-\x1f]{1,60}$")
+
+
+def read_json(path, default):
+    try:
+        return json.loads(path.read_text())
+    except FileNotFoundError:
+        return default
+    except Exception as e:
+        log.warning("bad %s: %s", path, e)
+        return default
+
+
+def write_json(path, data):
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+    tmp.replace(path)  # atomic: readers never see half a file
+
+
+def people_map():
+    return {k: v for k, v in read_json(PEOPLE_FILE, {}).items() if isinstance(v, list)}
+
+
+def api_registry(names):
+    with db() as c:
+        rows = c.execute("SELECT client, COUNT(*) n, MAX(t) last FROM q WHERE t >= ? GROUP BY client",
+                         [time.time() - 86400]).fetchall()
+        seen = {r["client"]: r["last"] for r in c.execute(
+            "SELECT client, MAX(t) last FROM q WHERE t >= ? GROUP BY client", [time.time() - RETENTION_DAYS * 86400])}
+    day = {r["client"]: r["n"] for r in rows}
+    people, devs = people_map(), {}
+    for ip in set(names) | set(seen):
+        name = names.get(ip, ip)
+        d = devs.setdefault(name, {"name": name, "ips": [], "people": people.get(name, []), "lookups_24h": 0, "last": None})
+        d["ips"].append(ip)
+        d["lookups_24h"] += day.get(ip, 0)
+        if seen.get(ip):
+            d["last"] = max(d["last"] or 0, seen[ip])
+    for d in devs.values():
+        d["ips"].sort()
+    return sorted(devs.values(), key=lambda d: (-(d["last"] or 0), d["name"]))
+
+
+def api_registry_save(names, body):
+    name = str(body.get("name", "")).strip()
+    new = str(body.get("new_name") or name).strip()
+    people = sorted({str(p).strip()[:40] for p in body.get("people", []) if str(p).strip()})[:8]
+    if not NAME_RE.match(new):
+        raise ValueError("Names are 1 to 60 characters")
+    with registry_lock:
+        mapping = names.mapping()
+        ips = [ip for ip, n in mapping.items() if n == name]
+        if not ips:
+            with db() as c:
+                if c.execute("SELECT 1 FROM q WHERE client = ? LIMIT 1", [name]).fetchone():
+                    ips = [name]  # an unnamed device, known only by its IP
+        if not ips:
+            raise ValueError(f"No device called {name!r}")
+        if new != name:
+            overrides = read_json(NAMES_FILE, {})
+            lan = lan_info()
+            for ip in ips:
+                # Prefer the MAC: home devices get automatic IPs, so an IP key could later label a different device.
+                key = (lan.get(ip) or {}).get("mac") or ip
+                overrides[key] = new
+            write_json(NAMES_FILE, overrides)
+        pm = people_map()
+        pm.pop(name, None)
+        if people:
+            pm[new] = people
+        else:
+            pm.pop(new, None)
+        write_json(PEOPLE_FILE, pm)
+    return {"ok": True, "name": new, "ips": ips, "people": people}
+
+
 # ---------------------------------------------------------------- storage + sync
 
 def db():
@@ -231,6 +319,8 @@ def init_db():
             CREATE TABLE IF NOT EXISTS names (ip TEXT PRIMARY KEY, name TEXT, t REAL);
             CREATE TABLE IF NOT EXISTS devices (ip TEXT PRIMARY KEY, mac TEXT, vendor TEXT, t REAL);
             CREATE TABLE IF NOT EXISTS wifi (mac TEXT PRIMARY KEY, iface TEXT, connected INTEGER, t REAL);
+            CREATE TABLE IF NOT EXISTS domcat (domain TEXT PRIMARY KEY, category TEXT);  -- every domain checked; NULL = no list
+            CREATE INDEX IF NOT EXISTS domcat_cat ON domcat(category);
         """)
         try:  # added later: when Pi-hole last saw a query from this IP
             c.execute("ALTER TABLE devices ADD COLUMN last REAL")
@@ -396,11 +486,101 @@ def sync_loop(ph):
         time.sleep(SYNC_SECONDS)
 
 
+# ---------------------------------------------------------------- category lists (e.g. adult content)
+# A list names domains; a lookup matches if its domain or any parent domain is listed. Domains are classified once
+# into the domcat table (new ones every minute; everything again when a list changes), so queries are a simple join.
+
+CATEGORY_STATE = {}
+
+
+def parse_list(text):
+    """Plain domains, "*.domain", hosts files ("0.0.0.0 domain") and Adblock ("||domain^") all work."""
+    out = set()
+    for line in text.splitlines():
+        line = line.split("#", 1)[0].strip()
+        if not line or line.startswith("!") or line.startswith("["):
+            continue
+        parts = line.split()
+        d = parts[1] if len(parts) > 1 and re.match(r"^(0\.0\.0\.0|127\.0\.0\.1|::1?)$", parts[0]) else parts[0]
+        d = d.lower().removeprefix("||").removeprefix("*.").split("^", 1)[0].rstrip(".")
+        if "." in d and DOMAIN_RE.match(d):
+            out.add(d)
+    return out
+
+
+def refresh_lists(force=False):
+    """Download stale lists (keeping the last good copy on failure) and load them. Returns True if anything changed."""
+    CATEGORY_DIR.mkdir(parents=True, exist_ok=True)
+    changed = False
+    for name, src in CATEGORY_LISTS.items():
+        path, st = CATEGORY_DIR / f"{name}.txt", CATEGORY_STATE.setdefault(name, {"domains": set(), "mtime": None, "error": None})
+        try:
+            if src.startswith(("http://", "https://")):
+                if force or not path.exists() or time.time() - path.stat().st_mtime > CATEGORY_REFRESH:
+                    req = urllib.request.Request(src, headers={"User-Agent": "pihole-watch (home network monitor)"})
+                    with urllib.request.urlopen(req, timeout=120) as r:
+                        text = r.read().decode("utf-8", "replace")
+                    if len(parse_list(text)) < 100:
+                        raise ValueError("downloaded list looks empty")
+                    tmp = path.with_suffix(".tmp")
+                    tmp.write_text(text)
+                    tmp.replace(path)
+            else:
+                path = Path(src)
+            st["error"] = None
+        except Exception as e:
+            st["error"] = f"update failed, using the last copy: {e}" if path.exists() else f"no list yet: {e}"
+            log.warning("category %s: %s", name, e)
+        if path.exists() and path.stat().st_mtime != st["mtime"]:
+            st["domains"], st["mtime"] = parse_list(path.read_text(errors="replace")), path.stat().st_mtime
+            log.info("category %s: %d domains", name, len(st["domains"]))
+            changed = True
+    return changed
+
+
+def category_of(domain):
+    labels = domain.split(".")
+    suffixes = [".".join(labels[i:]) for i in range(len(labels) - 1)]
+    for name, st in CATEGORY_STATE.items():
+        if any(s in st["domains"] for s in suffixes):
+            return name
+    return None
+
+
+def classify(all_again=False):
+    with db() as c:
+        if all_again:
+            c.execute("DELETE FROM domcat")
+        new = [r[0] for r in c.execute("SELECT DISTINCT q.domain FROM q LEFT JOIN domcat d ON d.domain = q.domain WHERE d.domain IS NULL")]
+        c.executemany("INSERT OR REPLACE INTO domcat VALUES (?, ?)", [(d, category_of(d)) for d in new])
+    return len(new)
+
+
+def category_loop():
+    last_refresh = 0
+    while True:
+        try:
+            changed = False
+            if time.time() - last_refresh > 3600:  # checks hourly; downloads only when a list is a day old
+                changed, last_refresh = refresh_lists(), time.time()
+            classify(all_again=changed)
+        except Exception as e:
+            log.warning("categories: %s", e)
+        time.sleep(60)
+
+
+def api_categories():
+    with db() as c:
+        counts = dict(c.execute("SELECT category, COUNT(*) FROM domcat WHERE category IS NOT NULL GROUP BY category").fetchall())
+    return {name: {"source": CATEGORY_LISTS[name], "list_domains": len(st["domains"]), "updated": st["mtime"],
+                   "error": st["error"], "domains_seen": counts.get(name, 0)} for name, st in CATEGORY_STATE.items()}
+
+
 # ---------------------------------------------------------------- queries for the API
 
 class Filters:
     def __init__(self, params, names):
-        self.hours = max(1, min(int(params.get("hours", ["24"])[0] or 24), RETENTION_DAYS * 24))
+        self.hours = max(1, min(int(float(params.get("hours", ["24"])[0] or 24)), RETENTION_DAYS * 24))
         self.since = time.time() - self.hours * 3600
         self.device = params.get("device", [""])[0]
         self.wifi = params.get("wifi", [""])[0]
@@ -529,6 +709,98 @@ def api_blocked(f):
     return sorted(merged.values(), key=lambda m: -m["last"])
 
 
+def api_query(params, names):
+    """One flexible, read-only query over the lookup log (used by Olympus' chat).
+
+    device: friendly name or IP; a case-insensitive part of a name works ("iphone").
+    domain: part of a domain ("tiktok", "youtube.com"). status: any | blocked | allowed.
+    start/end: unix seconds (default: the last `hours`, default 24).
+    person: someone from people.json; matches the devices they use (part of a name works).
+    group: site | domain | device | person | hour | day | weekday_hour | none (none = the lookups, newest first).
+    """
+    p = lambda k, d="": (params.get(k, [d])[0] or d).strip()
+    now = time.time()
+    end = float(p("end") or now)
+    start = float(p("start") or end - float(p("hours", "24")) * 3600)
+    start = max(start, now - RETENTION_DAYS * 86400)
+    group, status, limit = p("group", "site"), p("status", "any"), max(1, min(int(p("limit", "25")), 200))
+    if group not in ("site", "domain", "device", "person", "hour", "day", "weekday_hour", "none") or status not in ("any", "blocked", "allowed"):
+        raise ValueError("bad group or status")
+    sql, args = ["t >= ?", "t < ?"], [start, end]
+    matched = []
+    if p("device"):
+        want = p("device").lower()
+        ips = [ip for ip, n in names.items() if n.lower() == want or ip == want]
+        if not ips:
+            ips = [ip for ip, n in names.items() if want in n.lower()]
+        matched = sorted({names.get(ip, ip) for ip in ips}) or [p("device")]
+        ips = ips or [p("device")]
+        sql.append("client IN (%s)" % ",".join("?" * len(ips)))
+        args += ips
+    pm, people_matched = people_map(), []
+    if p("person"):
+        want = p("person").lower()
+        hit = lambda exact: [d for d, ps in pm.items() if any((x.lower() == want) if exact else (want in x.lower()) for x in ps)]
+        devs = hit(True) or hit(False)
+        people_matched = sorted({x for d in devs for x in pm[d] if want in x.lower()}) or [p("person")]
+        ips = [ip for ip, n in names.items() if n in devs] or ["(nobody)"]
+        sql.append("client IN (%s)" % ",".join("?" * len(ips)))
+        args += ips
+    if p("domain"):
+        sql.append(r"domain LIKE ? ESCAPE '\'")
+        args.append("%" + re.sub(r"[%\\]", "", p("domain").lower()).replace("_", r"\_") + "%")
+    if status != "any":
+        sql.append(BLOCKED_SQL if status == "blocked" else f"NOT {BLOCKED_SQL}")
+    if p("category"):
+        if p("category") not in CATEGORY_LISTS:
+            raise ValueError(f"unknown category; known: {', '.join(CATEGORY_LISTS)}")
+        sql.append("domain IN (SELECT domain FROM domcat WHERE category = ?)")
+        args.append(p("category"))
+    if p("noise", "1") != "0" and not p("domain") and not p("category"):  # asked for by name or category: show it all
+        sql.append("base NOT IN (%s)" % ",".join("?" * len(NOISE)))
+        args += sorted(NOISE)
+    w = " AND ".join(sql)
+    off = time.localtime(end).tm_gmtoff  # buckets follow the local clock
+    with db() as c:
+        tot = c.execute(f"SELECT COUNT(*) n, SUM({BLOCKED_SQL}) b FROM q WHERE {w}", args).fetchone()
+        if group == "none":
+            rows = [{"t": r["t"], "device": names.get(r["client"], r["client"]), "domain": r["domain"],
+                     "blocked": bool(r["blk"])}
+                    for r in c.execute(f"SELECT t, client, domain, {BLOCKED_SQL} blk FROM q WHERE {w} "
+                                       f"ORDER BY t DESC LIMIT ?", [*args, limit])]
+        elif group == "weekday_hour":  # Monday = 0; 1970-01-01 was a Thursday
+            rows = [{"weekday": r["wd"], "hour": r["hr"], "queries": r["n"], "blocked": r["b"] or 0}
+                    for r in c.execute(f"SELECT (lt / 86400 + 3) % 7 wd, (lt % 86400) / 3600 hr, COUNT(*) n, SUM(blk) b FROM "
+                                       f"(SELECT CAST(t + ? AS INTEGER) lt, {BLOCKED_SQL} blk FROM q WHERE {w}) GROUP BY wd, hr",
+                                       [off, *args])]
+        elif group in ("hour", "day"):
+            size = 3600 if group == "hour" else 86400
+            rows = [{"t": r["k"] * size - off, "queries": r["n"], "blocked": r["b"] or 0}
+                    for r in c.execute(f"SELECT CAST((t + ?) / ? AS INT) k, COUNT(*) n, SUM({BLOCKED_SQL}) b "
+                                       f"FROM q WHERE {w} GROUP BY k ORDER BY k", [off, size, *args])]
+        else:
+            col = {"site": "base", "domain": "domain", "device": "client", "person": "client"}[group]
+            merged = {}
+            for r in c.execute(f"SELECT {col} k, COUNT(*) n, SUM({BLOCKED_SQL}) b, MIN(t) first, MAX(t) last "
+                               f"FROM q WHERE {w} GROUP BY {col}", args):
+                keys = [r["k"]]
+                if group in ("device", "person"):  # one row per device (not per IP), or per person using it
+                    keys = [names.get(r["k"], r["k"])]
+                    if group == "person":
+                        keys = pm.get(keys[0]) or ["Unassigned"]  # a shared device counts for each of its people
+                for key in keys:
+                    m = merged.setdefault(key, {"name": key, "queries": 0, "blocked": 0, "first": r["first"], "last": 0})
+                    m["queries"] += r["n"]; m["blocked"] += r["b"] or 0
+                    m["first"] = min(m["first"], r["first"]); m["last"] = max(m["last"], r["last"])
+            rows = sorted(merged.values(), key=lambda m: -m["queries"])[:limit]
+            if group == "device":
+                for m in rows:
+                    m["people"] = pm.get(m["name"], [])
+    return {"group": group, "start": start, "end": end, "status": status, "device": p("device"), "devices_matched": matched,
+            "person": p("person"), "people_matched": people_matched, "category": p("category"),
+            "domain": p("domain"), "queries": tot["n"], "blocked": tot["b"] or 0, "rows": rows}
+
+
 def site_regex(site):
     return r"(\.|^)" + site.replace(".", r"\.") + "$"
 
@@ -599,11 +871,14 @@ class Handler(BaseHTTPRequestHandler):
                                             "has_secret": SECRET_FILE.is_file()},
                     "/api/devices": lambda: sorted(set(f.names.values())),
                     "/api/lan": api_lan,
+                    "/api/categories": api_categories,
                     "/api/summary": lambda: api_summary(f),
                     "/api/sites": lambda: api_sites(f),
                     "/api/site": lambda: api_site(f, params.get("site", [""])[0]),
                     "/api/timeline": lambda: api_timeline(f),
                     "/api/blocked": lambda: api_blocked(f),
+                    "/api/query": lambda: api_query(params, f.names),
+                    "/api/registry": lambda: api_registry(f.names),
                     "/api/blocklist": lambda: api_blocklist(ph),
                 }
             else:
@@ -614,6 +889,7 @@ class Handler(BaseHTTPRequestHandler):
                 routes = {
                     "/api/block": lambda: api_block(ph, body),
                     "/api/unblock": lambda: api_unblock(ph, body),
+                    "/api/registry": lambda: api_registry_save(names, body),
                 }
             if url.path not in routes:
                 return self._send(404, {"error": "not found"})
@@ -638,6 +914,7 @@ def main():
     server.pihole, server.names = PiHole(), Names()
     threading.Thread(target=sync_loop, args=(server.pihole,), daemon=True).start()
     threading.Thread(target=syslog_loop, daemon=True).start()
+    threading.Thread(target=category_loop, daemon=True).start()
     log.info("pihole-watch on :%d, Pi-hole at %s, keeping %d days", PORT, PIHOLE_API, RETENTION_DAYS)
     server.serve_forever()
 

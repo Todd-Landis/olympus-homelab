@@ -18,16 +18,21 @@ from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import chat
+
 HERE = Path(__file__).parent
 CONFIG = json.loads(Path(os.environ.get("CONFIG", HERE / "config.json")).read_text())
 BIND = os.environ.get("BIND", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "80"))
 HISTORY = 180  # samples kept per host (15 min at 5 s)
-SUITE_FILES = {"/suite.css": "text/css; charset=utf-8", "/suite.js": "text/javascript; charset=utf-8"}
+SUITE_FILES = {"/suite.css": "text/css; charset=utf-8", "/suite.js": "text/javascript; charset=utf-8",
+               "/viz.js": "text/javascript; charset=utf-8",
+               "/echarts-6.1.0.min.js": "text/javascript; charset=utf-8"}  # vendored from suite/vendor
+NETWORK_QUERY_KEYS = {"device", "person", "domain", "category", "status", "start", "end", "hours", "group", "limit", "noise"}
 
 log = logging.getLogger("olympus")
 lock = threading.Lock()
-state = {"hosts": {}, "services": {}, "widgets": {}}
+state = {"hosts": {}, "services": {}, "widgets": {}, "server_history": {}}
 
 
 def fetch(url, method="GET", timeout=4, raw=False):
@@ -64,6 +69,9 @@ def poll_host(h):
                                    "mem": round(100 * mem["used"] / mem["total"], 1),
                                    "rx": stats["net"]["rx"], "tx": stats["net"]["tx"],
                                    "gpu": (stats.get("gpu") or {}).get("util")})
+            for g in stats.get("servers", []):
+                hist = state["server_history"].setdefault(f'{name}/{g["name"]}', deque(maxlen=HISTORY))
+                hist.append({"t": stats["time"], "cpu": g.get("cpu"), "mem": g.get("mem"), "players": g.get("player_count")})
     except Exception as e:
         with lock:
             cur.update(online=False, error=agent_error(e))
@@ -178,6 +186,20 @@ def alerts():
     return out
 
 
+def servers_view():
+    """Game servers from every online host's agent, with recent history (call with lock held)."""
+    out = []
+    for h in CONFIG["hosts"]:
+        cur = state["hosts"].get(h["name"], {})
+        if not cur.get("online"):
+            continue
+        mem_total = ((cur.get("stats") or {}).get("memory") or {}).get("total")
+        for g in (cur.get("stats") or {}).get("servers", []):
+            out.append({**g, "host": h["name"], "host_label": h["label"], "host_mem_total": mem_total,
+                        "history": list(state["server_history"].get(f'{h["name"]}/{g["name"]}', []))})
+    return out
+
+
 def host_summary(h, detail=False):
     cur = state["hosts"].get(h["name"], {})
     containers = cur.get("containers", [])
@@ -204,8 +226,22 @@ def api_state():
             "hosts": [host_summary(h) for h in CONFIG["hosts"]],
             "services": [{**s, **state["services"].get(s["id"], {})} for s in CONFIG["services"]],
             "widgets": state["widgets"],
+            "servers": servers_view(),
             "alerts": alerts(),
         }
+
+
+def host_detail(name):
+    h = next((h for h in CONFIG["hosts"] if h["name"] == name), None)
+    if not h:
+        raise ValueError("unknown host")
+    with lock:
+        return {**host_summary(h, detail=True), "alerts": [a for a in alerts() if a["host"] == h["name"]],
+                "servers": [g for g in servers_view() if g["host"] == h["name"]]}
+
+
+def container_logs(host, cid, tail):
+    return fetch(f"{agent_for(host)}/containers/{cid}/logs?tail={int(tail)}", timeout=15).get("lines", [])
 
 
 def agent_for(host):
@@ -223,12 +259,12 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass
 
-    def _send(self, code, body, ctype="application/json"):
+    def _send(self, code, body, ctype="application/json", cache="no-store"):
         data = body if isinstance(body, bytes) else json.dumps(body).encode()
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", cache)
         self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         self.wfile.write(data)
@@ -240,7 +276,8 @@ class Handler(BaseHTTPRequestHandler):
             if url.path in ("/", "/index.html"):
                 return self._send(200, (HERE / "static" / "index.html").read_bytes(), "text/html; charset=utf-8")
             if url.path in SUITE_FILES:
-                return self._send(200, (HERE / "static" / url.path.lstrip("/")).read_bytes(), SUITE_FILES[url.path])
+                cache = "public, max-age=604800, immutable" if "echarts" in url.path else "no-store"  # versioned name
+                return self._send(200, (HERE / "static" / url.path.lstrip("/")).read_bytes(), SUITE_FILES[url.path], cache)
             if url.path == "/api/state":
                 return self._send(200, api_state())
             m = re.match(r"^/api/host/([a-z0-9-]+)$", url.path)
@@ -248,8 +285,17 @@ class Handler(BaseHTTPRequestHandler):
                 h = next((h for h in CONFIG["hosts"] if h["name"] == m.group(1)), None)
                 if not h:
                     return self._send(404, {"error": "unknown host"})
-                with lock:
-                    return self._send(200, {**host_summary(h, detail=True), "alerts": [a for a in alerts() if a["host"] == h["name"]]})
+                return self._send(200, host_detail(h["name"]))
+            if url.path in ("/api/devices", "/api/network/query"):
+                nw = CONFIG.get("widgets", {}).get("network_watch")
+                if not nw:
+                    return self._send(404, {"error": "Network Watch isn't configured"})
+                if url.path == "/api/devices":
+                    return self._send(200, fetch(nw + "/api/registry", timeout=10))
+                keep = {k: v for k, v in q.items() if k in NETWORK_QUERY_KEYS}  # charts drilling down, no model involved
+                return self._send(200, fetch(nw + "/api/query?" + urllib.parse.urlencode(keep, doseq=True), timeout=20))
+            if url.path == "/api/chat/info":
+                return self._send(200, {"backends": chat.backends()})
             if url.path == "/api/logs":
                 cid = q.get("id", [""])[0]
                 if not re.match(r"^[0-9a-f]{12,64}$", cid):
@@ -266,7 +312,12 @@ class Handler(BaseHTTPRequestHandler):
         # JSON-only: browsers won't send this cross-site without a CORS preflight.
         if not self.headers.get("Content-Type", "").startswith("application/json"):
             return self._send(415, {"error": "JSON only"})
-        if urllib.parse.urlparse(self.path).path != "/api/action":
+        path = urllib.parse.urlparse(self.path).path
+        if path == "/api/chat":
+            return self.chat()
+        if path == "/api/devices":
+            return self.save_device()
+        if path != "/api/action":
             return self._send(404, {"error": "not found"})
         try:
             body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
@@ -284,12 +335,53 @@ class Handler(BaseHTTPRequestHandler):
             self._send(502, {"error": agent_error(e)})
 
 
+    def save_device(self):
+        nw = CONFIG.get("widgets", {}).get("network_watch")
+        try:
+            body = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+            req = urllib.request.Request(nw + "/api/registry", data=body, method="POST",
+                                         headers={"Content-Type": "application/json", "User-Agent": "olympus"})
+            with urllib.request.urlopen(req, timeout=10) as r:
+                return self._send(200, json.loads(r.read()))
+        except urllib.error.HTTPError as e:
+            return self._send(e.code, {"error": agent_error(e)})
+        except Exception as e:
+            return self._send(502, {"error": agent_error(e)})
+
+    def chat(self):
+        """Server-sent events: one JSON object per step, tile and answer, as they happen."""
+        try:
+            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
+        except ValueError:
+            return self._send(400, {"error": "bad JSON"})
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+
+        def emit(ev):
+            self.wfile.write(f"data: {json.dumps(ev, default=str)}\n\n".encode())
+            self.wfile.flush()
+        try:
+            chat.ask(body, emit)
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # the page went away mid-answer
+        except Exception as e:
+            log.exception("chat failed")
+            try:
+                emit({"type": "error", "text": f"Something broke: {e}"})
+            except OSError:
+                pass
+
+
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     run_every(5, poll_host, CONFIG["hosts"])
     run_every(10, poll_containers, CONFIG["hosts"])
     run_every(20, check_service, CONFIG["services"])
     run_every(15, poll_widgets)
+    chat.init(CONFIG, api_state, host_detail, container_logs)
     log.info("Olympus on %s:%d with %d hosts, %d services", BIND, PORT, len(CONFIG["hosts"]), len(CONFIG["services"]))
     ThreadingHTTPServer((BIND, PORT), Handler).serve_forever()
 

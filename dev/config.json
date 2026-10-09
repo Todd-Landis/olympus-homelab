@@ -1,0 +1,20 @@
+{
+  "hosts": [
+    {"name": "helios", "label": "Helios", "role": "AI hub · always on", "agent": "http://127.0.0.1:9301"},
+    {"name": "horae", "label": "Horae", "role": "Gatekeeper · DNS & home · Raspberry Pi 4", "agent": "http://127.0.0.1:9302"},
+    {"name": "hephaestus", "label": "Hephaestus", "role": "Coding models · tower (Ubuntu side)", "agent": "http://127.0.0.1:9", "sometimes_off": true}
+  ],
+  "services": [
+    {"id": "openwebui", "name": "Open WebUI", "host": "helios", "desc": "Chat", "url": "http://127.0.0.1:9301/health", "check": "http://127.0.0.1:9301/health"},
+    {"id": "comfyui", "name": "ComfyUI", "host": "helios", "desc": "Images", "url": "http://127.0.0.1:9301/health", "check": "http://127.0.0.1:9301/health"},
+    {"id": "netwatch", "name": "Network Watch", "host": "helios", "desc": "Browsing", "url": "http://127.0.0.1:9295/", "check": "http://127.0.0.1:9295/api/health"},
+    {"id": "ollama-helios", "name": "Ollama", "host": "helios", "desc": "Models", "check": "http://127.0.0.1:9311/api/version"},
+    {"id": "ntfy", "name": "ntfy", "host": "helios", "desc": "Alerts", "check": "http://127.0.0.1:9/"},
+    {"id": "horae-dash", "name": "Horae dashboard", "host": "horae", "url": "http://127.0.0.1:9302/health", "check": "http://127.0.0.1:9302/health"},
+    {"id": "pihole", "name": "Pi-hole", "host": "horae", "desc": "Ad blocking", "url": "http://127.0.0.1:9302/health", "check": "http://127.0.0.1:9302/health"},
+    {"id": "ha", "name": "Home Assistant", "host": "horae", "desc": "Smart home", "url": "http://127.0.0.1:9302/health", "check": "http://127.0.0.1:9302/health"},
+    {"id": "ollama-forge", "name": "Ollama", "host": "hephaestus", "desc": "Coding models", "check": "http://127.0.0.1:9/"}
+  ],
+  "chat": {"ollama": {"url": "http://127.0.0.1:9311", "model": "puck:latest", "num_ctx": 8192, "think": false}},
+  "widgets": {"network_watch": "http://127.0.0.1:9295", "ollama": [{"host": "helios", "url": "http://127.0.0.1:9311"}]}
+}

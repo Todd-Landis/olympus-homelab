@@ -24,7 +24,7 @@ This file is the current state, what changed recently, open items, how to work h
   - reads Pi-hole's network table every 5 min (IP -> MAC + maker),
   - listens for the ASUS syslog on udp/514 (`5514` in the container) and records which Wi-Fi network each device joins,
   - `/api/lan`: home-address pool usage (devices seen in the last 24 h) and the list of Wi-Fi networks.
-- **helios** `~/olympus` (http://helios/, port 80 on the Tailscale IP): hub + agents on helios, horae and hephaestus (`:9101`, answer
+- **helios** `~/olympus` (http://helios/, port 80 on the Tailscale IP): **chat is the main view** (see below), old overview = Dashboard tab; hub + agents on helios, horae and hephaestus (`:9101`, answer
   only `100.88.170.59`). Network card shows home-address usage; alert at 80%. Restart/stop/start and logs through the agents.
   No login on Olympus or Network.
 - **helios** Dragonwilds server (systemd `dragonwilds.service`, UDP 7777 game + 8888 beacon, forwarded on the router).
@@ -67,8 +67,9 @@ art project; keep it subtle, modern and readable. No dark mode.
 5. **Odysseus** was down ~12 h after helios rebooted at 04:30 (bind mount of the laptop share failed at boot). Started it and
    added the `@reboot` auto-start script.
 6. `deploy.sh horae-stack` now only copies files and prints the `sudo` command (the Pi's `.env` is root-only).
-7. **Git**: today's commits were made on branch `claude/determined-bell-wxx907` (the folder had been left on it by the session
-   that added Matter). `main` was behind; see open item 1.
+7. **Git**: today's commits were made on branch `claude/determined-bell-wxx907` while a parallel session's work (chat, categories,
+   game servers, hephaestus agent) sat on `claude/tender-ritchie-d71y1t`. Deploys from the first branch had removed the
+   second's features from helios; the branches were merged and redeployed (see open item 1).
 
 ## Open items
 
@@ -87,6 +88,54 @@ art project; keep it subtle, modern and readable. No dark mode.
 8. `horae.local` resolves only partly on this PC (mDNS); use `horae` or `horae.home`.
 9. Possible: login on Olympus/Network if the tailnet is ever shared. Network now logs **everyone's** browsing at home
    (e.g. Connor's S24, guests); Todd was told it's fair to let household members know.
+
+## Olympus chat (from the parallel session, merged 2026-10-09)
+
+- **Olympus chat** is the main view of http://helios/ (the old overview is the **Dashboard** tab; links to every hosted
+  site sit in the header). Questions are answered by a model that calls read-only tools (machine status, container
+  logs, Network Watch's `/api/query`); the answer text comes first, then tiles with charts.
+  - Charts: Apache ECharts 6.1.0, vendored in `suite/vendor/` (Apache-2.0), drawn by `olympus/hub/static/viz.js`.
+    Clicking a bar drills down through the hub's `/api/network/query` without asking the model again.
+  - Devices & people: edited on the Dashboard tab; stored by Network Watch in `data/names.json` (renames, all IPs of
+    a device) and `data/people.json` (who uses what). The chat can filter and group by person.
+  - Local model is `chat.ollama.model` in `olympus/hub/config.json` (must be installed on helios: `ollama pull <name>`).
+  - **Local only for now** (Todd's choice; a Pro subscription doesn't cover API use). To turn Claude back on, add
+    `"claude": {"model": "claude-opus-5-5", "effort": "medium", "key_file": "/secrets/anthropic.key"}` under `chat`
+    in config.json and create the key file below.
+  - Claude option: the hub image (`olympus/image/Dockerfile`) has the `anthropic` package; the key lives in
+    `~/olympus/secrets/anthropic.key` on helios (created by Todd, never committed or pasted in chat):
+    `read -rsp "Anthropic API key: " k && printf '%s' "$k" > ~/olympus/secrets/anthropic.key && chmod 600 ~/olympus/secrets/anthropic.key; unset k`
+    Model `claude-opus-5-5`, with server-side refusal fallback on. Only the rows a question looks up leave the house.
+  - Read-only by design for now; action buttons (restart, block) in tiles are a planned next step.
+- The Apps panel (iframes of each service on the overview) was tried and removed in favour of the chat.
+  `ha-allow-framing.sh` had already set `http: use_x_frame_options: false` in Home Assistant's configuration.yaml on
+  horae; it's harmless, but to undo it delete that line (a `.bak-` copy sits next to the file) and restart Home Assistant.
+
+
+## Content categories (Network Watch)
+
+- `CATEGORY_LISTS` (default `{"adult": "https://nsfw.oisd.nl/domainswild2"}`, the OISD NSFW list) is downloaded daily
+  to `~/pihole-watch/data/categories/`; the last good copy is kept if a download fails. Every domain seen is tagged
+  once in the `domcat` table (a domain matches if it or a parent domain is listed). `/api/categories` shows list size,
+  last update, errors and how many seen domains matched. The chat's network query takes `category: "adult"`.
+- It matches DNS lookups, not page views: ads, previews and embeds can trigger them. Pi-hole could also *block* the same
+  list (add it as an adlist in Pi-hole) if that's ever wanted; this only reports.
+
+## Game servers
+
+- The helios agent watches game servers listed in `SERVERS` (olympus/docker-compose.yml): systemd unit (running,
+  uptime, CPU, memory), Steam build (`steamapps/appmanifest_<appid>.acf`) and players from the server log.
+- Dragonwilds: unit `dragonwilds`, install `/home/synestri/dragonwilds`, appid 4019830, log
+  `RSDragonwilds/Saved/Logs/RSDragonwilds.log` (rotated to `-backup-<date>.log` on restart). Updates are handled by
+  `dragonwilds-version-watch` (watches the journal for client/server protocol mismatches, runs
+  `~/steamcmd/auto-update-dragonwilds.sh`). The unit runs at low priority (CPUWeight=20, Nice=10) so the AI stack wins.
+- Player lines (`agent.py` `UE_PATTERNS`, checked against real Dragonwilds logs 2026-10-09): `Login request: …?Name=<name>
+  userId: RedpointEOS:<id>` maps id → name (names can contain spaces), `Join succeeded: <name>` is a join, and
+  `UNetConnection::Close: … UniqueId: <id>` is a leave. Disconnects from ids that never logged in are ignored.
+  Another game can override any of these with `"patterns": {...}` in its SERVERS entry.
+
+- UI work: follow `.claude/skills/olympus-design` (design system in `docs/DESIGN.md`, history in `docs/design-log.md`).
+  `dev/stack.sh start` runs Olympus + Network Watch locally on fake data; `/ui-audit` and `/ui-critique` check it.
 
 ## How to work here
 

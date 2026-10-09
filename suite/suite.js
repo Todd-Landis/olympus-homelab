@@ -44,15 +44,15 @@
   }
 
   // ---------------------------------------------------------------- masthead
-  function mount({ app, title }) {
+  function mount({ app, title, nav = true }) {
     const host = $("#masthead");
     const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
     host.innerHTML = `
       <header class="mast">
         <a class="mast-brand" href="${APPS[0].url}"><b>Olympus</b>${title ? `<i>${esc(title)}</i>` : ""}</a>
-        <nav class="suite-nav" aria-label="Apps">
+        ${nav ? `<nav class="suite-nav" aria-label="Apps">
           ${APPS.map((a) => `<a href="${a.url}" ${a.id === app ? 'aria-current="page"' : ""}>${esc(a.name)}</a>`).join("")}
-        </nav>
+        </nav>` : ""}
         <div class="mast-right">
           <span class="status-pill" id="suite-live"><span class="dot"></span>Connecting</span>
           <span class="mast-sky"></span>
@@ -90,7 +90,7 @@
       const key = el.dataset.tw, to = Number(el.dataset.v), from = twPrev.get(key);
       twPrev.set(key, to);
       if (from == null || from === to || !isFinite(to)) return;
-      const fmt = el.dataset.fmt || "int", t0 = performance.now(), D = 650;
+      const fmt = el.dataset.fmt || "int", t0 = performance.now(), D = 300;  // seen every 5 s: keep it short
       const show = (v) => { el.textContent = fmt === "pct" ? `${Math.round(v)}%` : Math.round(v).toLocaleString(); };
       const step = (now) => {
         const p = Math.min(1, (now - t0) / D), e = 1 - Math.pow(1 - p, 3);

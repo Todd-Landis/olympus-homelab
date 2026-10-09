@@ -17,6 +17,9 @@
     {"id": "ha", "name": "Home Assistant", "host": "horae", "desc": "Smart home", "url": "http://horae:8123", "check": "http://100.123.23.100:8123/"},
     {"id": "ollama-forge", "name": "Ollama", "host": "hephaestus", "desc": "Coding models", "check": "http://100.102.134.107:11434/api/version"}
   ],
+  "chat": {
+    "ollama": {"url": "http://127.0.0.1:11434", "model": "puck:latest", "num_ctx": 8192, "think": false}
+  },
   "widgets": {
     "network_watch": "http://100.88.170.59:8095",
     "ollama": [

@@ -5,6 +5,8 @@ pihole.secret
 *.env
 .pihole-password
 hub.env
+*.key
+secrets/
 
 # Live data and generated files
 data/
@@ -15,3 +17,12 @@ __pycache__/
 *.pyc
 backups/
 *.tar.gz
+
+# Local dev stack (dev/stack.sh): run state, and the suite copies it drops next to each app
+dev/.run/
+dev/ui/node_modules/
+olympus/hub/static/suite.css
+olympus/hub/static/suite.js
+olympus/hub/static/echarts-*.min.js
+pihole-watch/app/static/suite.css
+pihole-watch/app/static/suite.js

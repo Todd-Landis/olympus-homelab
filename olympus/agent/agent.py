@@ -11,8 +11,12 @@ Environment:
   ALLOW       comma-separated client IPs allowed to talk to the agent
   DISKS       comma-separated host mount points to report, e.g. "/,/srv/models"
   UNITS       comma-separated systemd units to report, e.g. "dragonwilds"
+  SERVERS     JSON list of game servers to watch (see GameServer), e.g.
+              [{"name": "Dragonwilds", "unit": "dragonwilds", "dir": "/home/synestri/dragonwilds", "appid": "4019830",
+                "log": "RSDragonwilds/Saved/Logs/RSDragonwilds.log"}]
   HOST_PROC / HOST_SYS / HOST_ROOT   where the host's /proc, /sys, / are mounted
 """
+import calendar
 import http.client
 import json
 import os
@@ -23,6 +27,7 @@ import subprocess
 import threading
 import time
 import urllib.parse
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -35,6 +40,7 @@ PROC = os.environ.get("HOST_PROC", "/host/proc")
 SYS = os.environ.get("HOST_SYS", "/host/sys")
 ROOT = os.environ.get("HOST_ROOT", "/host/root")
 DOCKER_SOCK = os.environ.get("DOCKER_SOCK", "/var/run/docker.sock")
+SERVERS = json.loads(os.environ.get("SERVERS", "[]") or "[]")
 HOSTNAME = os.environ.get("HOST_NAME") or open(f"{PROC}/sys/kernel/hostname").read().strip()
 
 
@@ -55,6 +61,20 @@ class Host:
         self.prev_units = {}
         self.snapshot = {}
         self.has_gpu = shutil.which("nvidia-smi") is not None
+        self.amd = None if self.has_gpu else self.find_amd()
+
+    def find_amd(self):
+        """The AMD card with the most VRAM (skips an integrated GPU), read from sysfs: no tools needed."""
+        best = None
+        base = f"{SYS}/class/drm"
+        for card in sorted(os.listdir(base)) if os.path.isdir(base) else []:
+            dev = f"{base}/{card}/device"
+            if not re.match(r"^card\d+$", card) or read(f"{dev}/vendor") != "0x1002" or read(f"{dev}/gpu_busy_percent") is None:
+                continue
+            vram = int(read(f"{dev}/mem_info_vram_total", "0") or 0)
+            if not best or vram > best[1]:
+                best = (dev, vram)
+        return best[0] if best else None
 
     def cpu(self):
         fields = [int(x) for x in read(f"{PROC}/stat").splitlines()[0].split()[1:]]
@@ -132,7 +152,24 @@ class Host:
                         "status": read(f"{base}/{ps}/status"), "ac": ac}
         return None
 
+    def amd_gpu(self):
+        dev = self.amd
+        num = lambda x: float(x) if x and re.match(r"^\d+$", x) else None
+        hw = next((f"{dev}/hwmon/{h}" for h in sorted(os.listdir(f"{dev}/hwmon"))), None) if os.path.isdir(f"{dev}/hwmon") else None
+        temp = num(read(f"{hw}/temp1_input")) if hw else None
+        power = num(read(f"{hw}/power1_average") or read(f"{hw}/power1_input")) if hw else None
+        used, total = num(read(f"{dev}/mem_info_vram_used")), num(read(f"{dev}/mem_info_vram_total"))
+        return {"name": read(f"{dev}/product_name") or "AMD Radeon", "util": num(read(f"{dev}/gpu_busy_percent")),
+                "mem_used": round(used / 2**20) if used is not None else None,      # MiB, like nvidia-smi
+                "mem_total": round(total / 2**20) if total is not None else None,
+                "temp": temp / 1000 if temp is not None else None, "power": power / 1e6 if power is not None else None}
+
     def gpu(self):
+        if self.amd:
+            try:
+                return self.amd_gpu()
+            except OSError:
+                return None
         if not self.has_gpu:
             return None
         try:
@@ -174,7 +211,139 @@ class Host:
             "load": [float(x) for x in load], "uptime": float(read(f"{PROC}/uptime").split()[0]),
             "memory": self.memory(), "net": self.network(), "temps": self.temps(), "disks": self.disks(),
             "battery": self.battery(), "gpu": self.gpu(), "units": self.units(),
+            "servers": [g.collect() for g in GAMES],
         }
+
+
+# ---------------------------------------------------------------- game servers
+
+# Unreal Engine's standard lines; a server entry can override any of these with its own "patterns".
+UE_PATTERNS = {
+    # e.g. "Login request: ?p=…?pf=Xbox?cpx=1?c?Name=OG Phaaran userId: RedpointEOS:0002… platform: RedpointEOS"
+    "login": r"Login request: .*?\?Name=(?P<name>.+?) userId: (?P<id>\S+)",
+    "join": r"Join succeeded: (?P<name>.+?)\s*$",
+    "leave": r"UNetConnection::Close: .*?UniqueId: (?P<id>[^,\s]+)",
+    "version": r"IsNetworkCompatibleOverride: LocalVersion = (?P<local>\d+), RemoteVersion = (?P<remote>\d+)",
+    "save": r"Save completed SUCCESSFULLY",
+    "world": r"WorldName\[(?P<world>[^\]]+)\]",
+}
+UE_TIME = re.compile(r"^\[(\d{4})\.(\d\d)\.(\d\d)-(\d\d)\.(\d\d)\.(\d\d):\d{3}\]")  # UTC
+
+
+class GameServer:
+    """One dedicated game server: its systemd unit (running, uptime, CPU, memory), its Steam build, and who is on it,
+    followed from the server's own log file. The log is read incrementally; a new file (the server restarted and
+    rotated its log) starts the player list over."""
+
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.name, self.unit = cfg["name"], cfg.get("unit", "")
+        self.dir = ROOT + cfg.get("dir", "")
+        self.log = os.path.join(self.dir, cfg["log"]) if cfg.get("log") else None
+        self.pat = {k: re.compile(v) for k, v in {**UE_PATTERNS, **cfg.get("patterns", {})}.items()}
+        self.prev_cpu = None
+        self.reset()
+        self.inode = None
+
+    def reset(self):
+        self.offset, self.partial = 0, b""
+        self.online, self.ids = {}, {}
+        self.events = deque(maxlen=20)
+        self.net_version = self.mismatch = self.last_save = self.world = None
+        self.last_activity = None
+
+    def follow(self):
+        if not self.log:
+            return
+        try:
+            st = os.stat(self.log)
+        except OSError:
+            return
+        if st.st_ino != self.inode or st.st_size < self.offset:  # rotated or truncated: a new server run
+            self.inode = st.st_ino
+            self.reset()
+        if st.st_size == self.offset:
+            return
+        with open(self.log, "rb") as f:
+            f.seek(self.offset)
+            chunk = f.read(8 * 2**20)
+        self.offset += len(chunk)
+        lines = (self.partial + chunk).split(b"\n")
+        self.partial = lines.pop()  # keep a half-written last line for next time
+        for raw in lines:
+            self.line(raw.decode("utf-8", "replace"))
+
+    def line(self, s):
+        m = UE_TIME.match(s)
+        t = calendar.timegm(time.strptime("".join(m.groups()), "%Y%m%d%H%M%S")) if m else time.time()
+        if (m := self.pat["login"].search(s)):
+            self.ids[m["id"]] = m["name"]
+        if (m := self.pat["join"].search(s)):
+            who = m["name"].strip()
+            self.online[who] = t
+            self.events.append({"t": t, "event": "joined", "player": who})
+            self.last_activity = t
+        if (m := self.pat["leave"].search(s)):
+            who = self.ids.get(m["id"])  # a connection that never logged in (e.g. rejected for its version) is ignored
+            if who in self.online:
+                del self.online[who]
+                self.events.append({"t": t, "event": "left", "player": who})
+                self.last_activity = t
+        if (m := self.pat["version"].search(s)):
+            self.net_version = int(m["local"])
+            if m["local"] != m["remote"]:
+                self.mismatch = {"t": t, "server": int(m["local"]), "client": int(m["remote"])}
+        if self.pat["save"].search(s):
+            self.last_save = t
+        if (m := self.pat["world"].search(s)):
+            self.world = m["world"]
+
+    def steam(self):
+        """Installed build from Steam's manifest (steamapps/appmanifest_<appid>.acf)."""
+        text = read(os.path.join(self.dir, "steamapps", f"appmanifest_{self.cfg.get('appid', '')}.acf"), "")
+        get = lambda k: (re.search(rf'"{k}"\s+"([^"]*)"', text) or [None, None])[1]
+        updated = get("LastUpdated")
+        return {"game": get("name"), "build": get("buildid"), "updated": int(updated) if updated and updated.isdigit() else None}
+
+    def process(self):
+        """Running state, start time, CPU and memory from the unit's cgroup and /proc."""
+        cg = f"{SYS}/fs/cgroup/system.slice/{self.unit}.service"
+        pids = [p for p in (read(f"{cg}/cgroup.procs", "") or "").split() if p.isdigit()]
+        out = {"running": bool(pids), "started": None, "cpu": None, "mem": None}
+        if not pids:
+            self.prev_cpu = None
+            return out
+        btime = next((int(l.split()[1]) for l in read(f"{PROC}/stat", "").splitlines() if l.startswith("btime")), None)
+        hz = os.sysconf("SC_CLK_TCK")
+        starts = []
+        for p in pids:
+            stat = read(f"{PROC}/{p}/stat", "")
+            if stat and btime:
+                starts.append(btime + int(stat.rsplit(")", 1)[1].split()[19]) / hz)  # field 22: starttime
+        out["started"] = min(starts) if starts else None
+        m = re.search(r"usage_usec (\d+)", read(f"{cg}/cpu.stat", "") or "")
+        if m:
+            now, u = time.time(), int(m.group(1))
+            if self.prev_cpu:
+                out["cpu"] = round((u - self.prev_cpu[1]) / ((now - self.prev_cpu[0]) * 1e6) * 100, 1)
+            self.prev_cpu = (now, u)
+        mem = read(f"{cg}/memory.current")
+        out["mem"] = int(mem) if mem and mem.isdigit() else None
+        return out
+
+    def collect(self):
+        try:
+            self.follow()
+        except OSError as e:
+            print(f"{self.name}: log unreadable: {e}", flush=True)
+        players = [{"name": n, "since": t} for n, t in sorted(self.online.items(), key=lambda x: x[1])]
+        return {"name": self.name, "unit": self.unit, **self.steam(), **self.process(), "world": self.world,
+                "players": players, "player_count": len(players), "last_activity": self.last_activity,
+                "events": list(self.events)[-8:], "net_version": self.net_version, "mismatch": self.mismatch,
+                "last_save": self.last_save, "log_found": bool(self.log and os.path.exists(self.log))}
+
+
+GAMES = [GameServer(c) for c in SERVERS]
 
 
 # ---------------------------------------------------------------- docker
