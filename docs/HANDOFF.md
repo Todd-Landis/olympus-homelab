@@ -91,3 +91,10 @@ art project; keep it subtle, modern and readable. No dark mode.
 
 - horae: nightly `/var/backups/pihub/pihub-YYYY-MM-DD.tar.gz` (14 kept, `pihub-backup.timer`). Copying them off the Pi isn't set up.
 - Code: this repo.
+
+## Odysseus after a reboot
+
+Odysseus (`/opt/ai-stack/odysseus`) bind-mounts `/mnt/win-ai-workspace`, a CIFS share from Todd's laptop. If the laptop
+isn't reachable when helios boots, Docker fails to start it ("no such device") and doesn't retry. `scripts/helios/odysseus-autostart.sh`
+(installed as `~/bin/odysseus-autostart.sh`, run by synestri's crontab `@reboot`) retries every 30 s for 30 min once the share
+is readable. Log: `journalctl -t odysseus-autostart`. If the laptop is off longer, start it from Olympus.
