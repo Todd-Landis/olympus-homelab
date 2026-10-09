@@ -341,8 +341,12 @@ def lan_info():
     out = {}
     for r in rows:
         iface = wifi.get(r["mac"])
-        out[r["ip"]] = {"mac": r["mac"], "vendor": r["vendor"], "last": r["last"],
-                        "wifi": labels.get(iface, iface) if iface else None}
+        # wifi.json maps radios to network names, and can also pin a MAC (e.g. a wired device -> "Wired").
+        net = labels.get(r["mac"]) or (labels.get(iface, iface) if iface else None)
+        out[r["ip"]] = {"mac": r["mac"], "vendor": r["vendor"], "last": r["last"], "wifi": net}
+    for key, net in labels.items():  # IP keys (e.g. horae, which Pi-hole doesn't list with a MAC)
+        if ip_num(key) is not None:
+            out.setdefault(key, {"mac": None, "vendor": "", "last": None, "wifi": None})["wifi"] = net
     return out
 
 

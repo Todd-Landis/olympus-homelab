@@ -65,3 +65,27 @@ cat /var/log/wifi-switch.log             # OK or ROLLED BACK
 
 It rewrites `/etc/netplan/60-wifi.yaml`, applies it as a separate systemd job and restores the backup by itself if the
 new network isn't working within 2 minutes.
+
+## Router log -> Wi-Fi network per device
+
+The ASUS sends its system log to helios (Advanced Settings > System Log > Remote Log Server = `192.168.50.3`, port 514).
+Network Watch listens on udp/514 (`5514` inside the container), keeps the raw lines in `~/pihole-watch/data/router.log`
+(2 MB, one rotation) and records Wi-Fi joins/leaves (`wlceventd` Assoc/Auth/Deauth/Disassoc) per MAC.
+
+`~/pihole-watch/data/wifi.json` turns radios into network names (copy in `pihole-watch/wifi.example.json`):
+
+| Radio | Network | Evidence |
+|---|---|---|
+| `wl0.1` | 5016Shoreside, 2.4 GHz | helios joined it (BSSID `…:e1`) |
+| `wl1.1` | 5016Shoreside, 5 GHz | iPhone, hephaestus |
+| `wl0.2` | SpectrumSetup-DB35, 2.4 GHz | IoT devices; helios' old BSSID `…:e2` |
+| `wl1.2` | SpectrumSetup-DB35, 5 GHz | |
+
+Keys can also be a MAC or an IP to pin a device (horae `192.168.50.2` -> "Wired"). A device shows its network after it
+next connects; joins that happen before the router's logger starts (right after a router reboot) aren't sent.
+
+## Address-pool alert
+
+Network Watch counts pool addresses (`DHCP_POOL`) used by devices Pi-hole saw in the last 24 hours (the ASUS lease time)
+at `/api/lan`. Olympus shows it in the Network card and warns at 80%. If it ever gets close: start the pool at `.20`
+(~235 addresses) or widen the LAN to a /23 (510).
