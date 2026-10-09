@@ -173,3 +173,7 @@ input[type=checkbox] { accent-color: var(--accent); width: 14px; height: 14px; }
   .mast-sky, .clock, .hide-sm { display: none !important; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* inside Olympus' app panel: the host page already has the masthead */
+.embedded #masthead { display: none; }
+.embedded .wrap { padding-top: 16px; }

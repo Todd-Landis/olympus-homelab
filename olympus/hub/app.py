@@ -80,18 +80,32 @@ def poll_containers(h):
         pass
 
 
+def frameable(headers):
+    """Can another site show this app in an iframe? Reads X-Frame-Options and CSP frame-ancestors."""
+    if headers.get("X-Frame-Options", "").strip().upper() in ("DENY", "SAMEORIGIN"):
+        return False  # SAMEORIGIN still blocks Olympus: helios:80 is a different origin
+    m = re.search(r"frame-ancestors([^;]*)", headers.get("Content-Security-Policy", ""), re.I)
+    return not m or any(src in ("*", "http:", "https:") or "helios" in src for src in m.group(1).split())
+
+
 def check_service(s):
     t0 = time.time()
     url = s.get("check") or s.get("url")
+    headers = None
     try:
-        fetch(url, timeout=4, raw=True)
-        up, code = True, 200
+        req = urllib.request.Request(url, headers={"User-Agent": "olympus"})
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            resp.read()
+            up, code, headers = True, 200, resp.headers
     except urllib.error.HTTPError as e:
-        up, code = e.code < 500, e.code  # 401/403 = alive behind a login
+        up, code, headers = e.code < 500, e.code, e.headers  # 401/403 = alive behind a login
     except Exception as e:
         up, code = False, str(getattr(e, "reason", e))
     with lock:
-        state["services"][s["id"]] = {"up": up, "code": code, "ms": round((time.time() - t0) * 1000), "checked": time.time()}
+        prev = state["services"].get(s["id"], {})
+        # "embed" in config.json wins; otherwise go by the headers (keep the last answer while it's down).
+        embed = s["embed"] if "embed" in s else frameable(headers) if headers is not None else prev.get("embed")
+        state["services"][s["id"]] = {"up": up, "code": code, "ms": round((time.time() - t0) * 1000), "checked": time.time(), "embed": embed}
 
 
 def poll_widgets():
