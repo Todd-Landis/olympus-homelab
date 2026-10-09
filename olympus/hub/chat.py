@@ -30,13 +30,15 @@ The home lab:
 - horae: Raspberry Pi 4. Runs Pi-hole (DNS and ad blocking for the house), Home Assistant and the Homepage dashboard.
 - hephaestus: a tower that is usually off or booted into Windows; it only reports when it runs Ubuntu.
 - Network Watch keeps 30 days of every DNS lookup each device made, through Pi-hole: device, domain, time, blocked or not.
+  Devices have names, and Todd can say which people use each device (a shared device belongs to several people).
 
 How to answer:
 - Look things up with the tools before answering; never guess numbers, names or times.
 - The page shows every tool result to Todd as a card right above your answer, so don't repeat it as a table or list.
   Answer in one to three short sentences that say what matters (the answer, anything unusual, what to look at).
 - For browsing questions use network_query. Domains are matched by any part ("tiktok" finds www.tiktok.com).
-  Device names can be partial ("iphone"). Call network_devices if a device name doesn't match anything.
+  Device names can be partial ("iphone"). For a person ("what has Sam been doing") use the person filter, which covers
+  all their devices. Call network_devices if a device or person doesn't match anything.
 - Times are local. Each question ends with the current time; work out start/end from it.
 - You can only look. If Todd asks you to restart, block or change something, say where in Olympus or Network to do it.
 - Plain text only; **bold** is fine. No headings, no tables."""
@@ -136,8 +138,7 @@ def t_machine(a):
         model["temps_c"] = {t["name"]: round(t["c"]) for t in s.get("temps", [])}
         model["system_services"] = [{"name": u["name"], "active": u["active"]} for u in s.get("units", [])]
         model["load"] = s.get("load")
-    tile = {k: v for k, v in d.items() if k != "history"}
-    return model, {"kind": "host", "host": tile}
+    return model, {"kind": "host", "host": d}
 
 
 def t_logs(a):
@@ -180,7 +181,7 @@ def t_network(a):
     if not H.network_url:
         raise ValueError("Network Watch isn't configured")
     q = {"group": a.get("group") or "site", "status": a.get("status") or "any", "limit": int(a.get("limit") or 25)}
-    for k in ("device", "domain"):
+    for k in ("device", "domain", "person"):
         if a.get(k):
             q[k] = str(a[k])
     start, end = parse_local(a.get("start")), parse_local(a.get("end"))
@@ -196,19 +197,24 @@ def t_network(a):
     rows = r["rows"]
     if r["group"] == "none":
         mrows = [{"time": local(x["t"]), "device": x["device"], "domain": x["domain"], "blocked": x["blocked"]} for x in rows]
+    elif r["group"] == "weekday_hour":
+        days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        mrows = [{"when": f'{days[x["weekday"]]} {x["hour"]:02d}:00', "lookups": x["queries"]} for x in sorted(rows, key=lambda x: -x["queries"])[:12]]
     elif r["group"] in ("hour", "day"):
         mrows = [{"from": local(x["t"]), "lookups": x["queries"], "blocked": x["blocked"]} for x in rows if x["queries"]]
     else:
         mrows = [{"name": x["name"], "lookups": x["queries"], "blocked": x["blocked"], "first": local(x["first"]), "last": local(x["last"])} for x in rows]
     model = {"from": local(r["start"]), "to": local(r["end"]), "device_filter": r["device"] or None,
-             "devices_matched": r["devices_matched"], "domain_filter": r["domain"] or None, "status": r["status"],
+             "devices_matched": r["devices_matched"], "person_filter": r["person"] or None, "people_matched": r["people_matched"],
+             "domain_filter": r["domain"] or None, "status": r["status"],
              "total_lookups": r["queries"], "total_blocked": r["blocked"], "grouped_by": r["group"], "rows": mrows}
     return model, {"kind": "network", **r}
 
 
 def t_devices(_):
-    names = get_json(H.network_url + "/api/devices")
-    return {"devices": names}, None
+    reg = get_json(H.network_url + "/api/registry")
+    return {"devices": [{"name": d["name"], "people": d["people"], "lookups_24h": d["lookups_24h"], "last_seen": local(d["last"])}
+                        for d in reg]}, None
 
 
 def t_models(_):
@@ -237,27 +243,29 @@ TOOLS = [
      ["container"]),
     ("network_query", t_network,
      "Search the DNS lookup history (30 days) of every device in the house. Filter by device, by domain and by "
-     "blocked/allowed, over a time window, and either group the results (site, domain, device, hour, day) or list "
-     "the individual lookups (group 'none', newest first). Background noise (OS telemetry, CDNs) is hidden unless "
-     "include_background is true or you filter by domain.",
+     "blocked/allowed, by person, over a time window, and either group the results (site, domain, device, person, "
+     "hour, day, weekday_hour for 'when is it usually busy') or list the individual lookups (group 'none', newest "
+     "first). Background noise (OS telemetry, CDNs) is hidden unless include_background is true or you filter by domain.",
      {"device": {"type": "string", "description": "Device name or part of it, e.g. 'iphone'. Leave out for all devices."},
+      "person": {"type": "string", "description": "A person's name: covers every device they use. Leave out for everyone."},
       "domain": {"type": "string", "description": "Any part of a domain, e.g. 'tiktok' or 'youtube.com'"},
       "status": {"type": "string", "enum": ["any", "blocked", "allowed"], "description": "Default any"},
       "hours": {"type": "number", "description": "Look back this many hours from now (default 24). Ignored if start is set."},
       "start": {"type": "string", "description": "Optional window start, local time 'YYYY-MM-DD HH:MM'"},
       "end": {"type": "string", "description": "Optional window end, local time 'YYYY-MM-DD HH:MM' (default now)"},
-      "group": {"type": "string", "enum": ["site", "domain", "device", "hour", "day", "none"],
-                "description": "site = per website (default), domain = exact domains, device = per device, hour/day = activity over time, none = individual lookups"},
+      "group": {"type": "string", "enum": ["site", "domain", "device", "person", "hour", "day", "weekday_hour", "none"],
+                "description": "site = per website (default), domain = exact domains, device = per device, person = per person, "
+                               "hour/day = activity over time, weekday_hour = usual weekly pattern, none = individual lookups"},
       "limit": {"type": "integer", "description": "Max rows (default 25, max 200)"},
       "include_background": {"type": "boolean", "description": "Include background noise (default false)"}},
      []),
-    ("network_devices", t_devices, "Names of every device Network Watch knows.", {}, []),
+    ("network_devices", t_devices, "Every device Network Watch knows: its name and the people who use it.", {}, []),
     ("ai_models", t_models, "Ollama models installed and currently loaded on helios and hephaestus.", {}, []),
 ]
 TOOL_FNS = {name: fn for name, fn, *_ in TOOLS}
 LABELS = {"homelab_status": "Checking every machine", "machine_details": "Looking at {machine}",
           "container_logs": "Reading {container} logs", "network_query": "Searching network history",
-          "network_devices": "Listing devices", "ai_models": "Checking AI models"}
+          "network_devices": "Listing devices and people", "ai_models": "Checking AI models"}
 
 
 def schema(props, required):

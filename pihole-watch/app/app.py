@@ -6,6 +6,7 @@ Stdlib only. Config via environment:
   PIHOLE_SECRET_FILE  file holding a Pi-hole *app password* (default /run/secrets/pihole)
   DB_PATH             SQLite file (default /data/watch.db)
   NAMES_FILE          optional JSON {"ip": "friendly name"} overrides (default /data/names.json)
+  PEOPLE_FILE         JSON {"device name": ["person", ...]} (default people.json next to NAMES_FILE)
   TS_SOCKET           tailscaled socket, used to name tailnet devices
   RETENTION_DAYS      days of history to keep (default 30)
   SYNC_SECONDS        how often to pull from Pi-hole (default 60)
@@ -30,6 +31,7 @@ PIHOLE_API = os.environ.get("PIHOLE_URL", "http://100.123.23.100:8080").rstrip("
 SECRET_FILE = Path(os.environ.get("PIHOLE_SECRET_FILE", "/run/secrets/pihole"))
 DB_PATH = os.environ.get("DB_PATH", "/data/watch.db")
 NAMES_FILE = Path(os.environ.get("NAMES_FILE", "/data/names.json"))
+PEOPLE_FILE = Path(os.environ.get("PEOPLE_FILE", str(NAMES_FILE.with_name("people.json"))))
 TS_SOCKET = os.environ.get("TS_SOCKET", "/var/run/tailscale/tailscaled.sock")
 RETENTION_DAYS = int(os.environ.get("RETENTION_DAYS", "30"))
 SYNC_SECONDS = int(os.environ.get("SYNC_SECONDS", "60"))
@@ -189,6 +191,83 @@ class Names:
 
     def name(self, ip, mapping=None):
         return (mapping or self.mapping()).get(ip, ip)
+
+
+# ---------------------------------------------------------------- devices and the people who use them
+# A device is every IP that maps to one name. Renaming writes names.json for all of its IPs (so giving a LAN IP
+# the same name as a Tailscale device merges them); people.json says who uses each device.
+
+registry_lock = threading.Lock()
+NAME_RE = re.compile(r"^[^\x00-\x1f]{1,60}$")
+
+
+def read_json(path, default):
+    try:
+        return json.loads(path.read_text())
+    except FileNotFoundError:
+        return default
+    except Exception as e:
+        log.warning("bad %s: %s", path, e)
+        return default
+
+
+def write_json(path, data):
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+    tmp.replace(path)  # atomic: readers never see half a file
+
+
+def people_map():
+    return {k: v for k, v in read_json(PEOPLE_FILE, {}).items() if isinstance(v, list)}
+
+
+def api_registry(names):
+    with db() as c:
+        rows = c.execute("SELECT client, COUNT(*) n, MAX(t) last FROM q WHERE t >= ? GROUP BY client",
+                         [time.time() - 86400]).fetchall()
+        seen = {r["client"]: r["last"] for r in c.execute(
+            "SELECT client, MAX(t) last FROM q WHERE t >= ? GROUP BY client", [time.time() - RETENTION_DAYS * 86400])}
+    day = {r["client"]: r["n"] for r in rows}
+    people, devs = people_map(), {}
+    for ip in set(names) | set(seen):
+        name = names.get(ip, ip)
+        d = devs.setdefault(name, {"name": name, "ips": [], "people": people.get(name, []), "lookups_24h": 0, "last": None})
+        d["ips"].append(ip)
+        d["lookups_24h"] += day.get(ip, 0)
+        if seen.get(ip):
+            d["last"] = max(d["last"] or 0, seen[ip])
+    for d in devs.values():
+        d["ips"].sort()
+    return sorted(devs.values(), key=lambda d: (-(d["last"] or 0), d["name"]))
+
+
+def api_registry_save(names, body):
+    name = str(body.get("name", "")).strip()
+    new = str(body.get("new_name") or name).strip()
+    people = sorted({str(p).strip()[:40] for p in body.get("people", []) if str(p).strip()})[:8]
+    if not NAME_RE.match(new):
+        raise ValueError("Names are 1 to 60 characters")
+    with registry_lock:
+        mapping = names.mapping()
+        ips = [ip for ip, n in mapping.items() if n == name]
+        if not ips:
+            with db() as c:
+                if c.execute("SELECT 1 FROM q WHERE client = ? LIMIT 1", [name]).fetchone():
+                    ips = [name]  # an unnamed device, known only by its IP
+        if not ips:
+            raise ValueError(f"No device called {name!r}")
+        if new != name:
+            overrides = read_json(NAMES_FILE, {})
+            overrides.update({ip: new for ip in ips})
+            write_json(NAMES_FILE, overrides)
+        pm = people_map()
+        pm.pop(name, None)
+        if people:
+            pm[new] = people
+        else:
+            pm.pop(new, None)
+        write_json(PEOPLE_FILE, pm)
+    return {"ok": True, "name": new, "ips": ips, "people": people}
 
 
 # ---------------------------------------------------------------- storage + sync
@@ -390,7 +469,8 @@ def api_query(params, names):
     device: friendly name or IP; a case-insensitive part of a name works ("iphone").
     domain: part of a domain ("tiktok", "youtube.com"). status: any | blocked | allowed.
     start/end: unix seconds (default: the last `hours`, default 24).
-    group: site | domain | device | hour | day | none (none = the lookups themselves, newest first).
+    person: someone from people.json; matches the devices they use (part of a name works).
+    group: site | domain | device | person | hour | day | weekday_hour | none (none = the lookups, newest first).
     """
     p = lambda k, d="": (params.get(k, [d])[0] or d).strip()
     now = time.time()
@@ -398,7 +478,7 @@ def api_query(params, names):
     start = float(p("start") or end - float(p("hours", "24")) * 3600)
     start = max(start, now - RETENTION_DAYS * 86400)
     group, status, limit = p("group", "site"), p("status", "any"), max(1, min(int(p("limit", "25")), 200))
-    if group not in ("site", "domain", "device", "hour", "day", "none") or status not in ("any", "blocked", "allowed"):
+    if group not in ("site", "domain", "device", "person", "hour", "day", "weekday_hour", "none") or status not in ("any", "blocked", "allowed"):
         raise ValueError("bad group or status")
     sql, args = ["t >= ?", "t < ?"], [start, end]
     matched = []
@@ -409,6 +489,15 @@ def api_query(params, names):
             ips = [ip for ip, n in names.items() if want in n.lower()]
         matched = sorted({names.get(ip, ip) for ip in ips}) or [p("device")]
         ips = ips or [p("device")]
+        sql.append("client IN (%s)" % ",".join("?" * len(ips)))
+        args += ips
+    pm, people_matched = people_map(), []
+    if p("person"):
+        want = p("person").lower()
+        hit = lambda exact: [d for d, ps in pm.items() if any((x.lower() == want) if exact else (want in x.lower()) for x in ps)]
+        devs = hit(True) or hit(False)
+        people_matched = sorted({x for d in devs for x in pm[d] if want in x.lower()}) or [p("person")]
+        ips = [ip for ip, n in names.items() if n in devs] or ["(nobody)"]
         sql.append("client IN (%s)" % ",".join("?" * len(ips)))
         args += ips
     if p("domain"):
@@ -428,22 +517,36 @@ def api_query(params, names):
                      "blocked": bool(r["blk"])}
                     for r in c.execute(f"SELECT t, client, domain, {BLOCKED_SQL} blk FROM q WHERE {w} "
                                        f"ORDER BY t DESC LIMIT ?", [*args, limit])]
+        elif group == "weekday_hour":  # Monday = 0; 1970-01-01 was a Thursday
+            rows = [{"weekday": r["wd"], "hour": r["hr"], "queries": r["n"], "blocked": r["b"] or 0}
+                    for r in c.execute(f"SELECT (lt / 86400 + 3) % 7 wd, (lt % 86400) / 3600 hr, COUNT(*) n, SUM(blk) b FROM "
+                                       f"(SELECT CAST(t + ? AS INTEGER) lt, {BLOCKED_SQL} blk FROM q WHERE {w}) GROUP BY wd, hr",
+                                       [off, *args])]
         elif group in ("hour", "day"):
             size = 3600 if group == "hour" else 86400
             rows = [{"t": r["k"] * size - off, "queries": r["n"], "blocked": r["b"] or 0}
                     for r in c.execute(f"SELECT CAST((t + ?) / ? AS INT) k, COUNT(*) n, SUM({BLOCKED_SQL}) b "
                                        f"FROM q WHERE {w} GROUP BY k ORDER BY k", [off, size, *args])]
         else:
-            col = {"site": "base", "domain": "domain", "device": "client"}[group]
+            col = {"site": "base", "domain": "domain", "device": "client", "person": "client"}[group]
             merged = {}
             for r in c.execute(f"SELECT {col} k, COUNT(*) n, SUM({BLOCKED_SQL}) b, MIN(t) first, MAX(t) last "
                                f"FROM q WHERE {w} GROUP BY {col}", args):
-                key = names.get(r["k"], r["k"]) if group == "device" else r["k"]  # one row per device, not per IP
-                m = merged.setdefault(key, {"name": key, "queries": 0, "blocked": 0, "first": r["first"], "last": 0})
-                m["queries"] += r["n"]; m["blocked"] += r["b"] or 0
-                m["first"] = min(m["first"], r["first"]); m["last"] = max(m["last"], r["last"])
+                keys = [r["k"]]
+                if group in ("device", "person"):  # one row per device (not per IP), or per person using it
+                    keys = [names.get(r["k"], r["k"])]
+                    if group == "person":
+                        keys = pm.get(keys[0]) or ["Unassigned"]  # a shared device counts for each of its people
+                for key in keys:
+                    m = merged.setdefault(key, {"name": key, "queries": 0, "blocked": 0, "first": r["first"], "last": 0})
+                    m["queries"] += r["n"]; m["blocked"] += r["b"] or 0
+                    m["first"] = min(m["first"], r["first"]); m["last"] = max(m["last"], r["last"])
             rows = sorted(merged.values(), key=lambda m: -m["queries"])[:limit]
+            if group == "device":
+                for m in rows:
+                    m["people"] = pm.get(m["name"], [])
     return {"group": group, "start": start, "end": end, "status": status, "device": p("device"), "devices_matched": matched,
+            "person": p("person"), "people_matched": people_matched,
             "domain": p("domain"), "queries": tot["n"], "blocked": tot["b"] or 0, "rows": rows}
 
 
@@ -522,6 +625,7 @@ class Handler(BaseHTTPRequestHandler):
                     "/api/timeline": lambda: api_timeline(f),
                     "/api/blocked": lambda: api_blocked(f),
                     "/api/query": lambda: api_query(params, f.names),
+                    "/api/registry": lambda: api_registry(f.names),
                     "/api/blocklist": lambda: api_blocklist(ph),
                 }
             else:
@@ -532,6 +636,7 @@ class Handler(BaseHTTPRequestHandler):
                 routes = {
                     "/api/block": lambda: api_block(ph, body),
                     "/api/unblock": lambda: api_unblock(ph, body),
+                    "/api/registry": lambda: api_registry_save(names, body),
                 }
             if url.path not in routes:
                 return self._send(404, {"error": "not found"})

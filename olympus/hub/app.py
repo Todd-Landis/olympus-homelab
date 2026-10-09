@@ -25,7 +25,10 @@ CONFIG = json.loads(Path(os.environ.get("CONFIG", HERE / "config.json")).read_te
 BIND = os.environ.get("BIND", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "80"))
 HISTORY = 180  # samples kept per host (15 min at 5 s)
-SUITE_FILES = {"/suite.css": "text/css; charset=utf-8", "/suite.js": "text/javascript; charset=utf-8"}
+SUITE_FILES = {"/suite.css": "text/css; charset=utf-8", "/suite.js": "text/javascript; charset=utf-8",
+               "/viz.js": "text/javascript; charset=utf-8",
+               "/echarts-6.1.0.min.js": "text/javascript; charset=utf-8"}  # vendored from suite/vendor
+NETWORK_QUERY_KEYS = {"device", "person", "domain", "status", "start", "end", "hours", "group", "limit", "noise"}
 
 log = logging.getLogger("olympus")
 lock = threading.Lock()
@@ -232,12 +235,12 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass
 
-    def _send(self, code, body, ctype="application/json"):
+    def _send(self, code, body, ctype="application/json", cache="no-store"):
         data = body if isinstance(body, bytes) else json.dumps(body).encode()
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", cache)
         self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         self.wfile.write(data)
@@ -249,7 +252,8 @@ class Handler(BaseHTTPRequestHandler):
             if url.path in ("/", "/index.html"):
                 return self._send(200, (HERE / "static" / "index.html").read_bytes(), "text/html; charset=utf-8")
             if url.path in SUITE_FILES:
-                return self._send(200, (HERE / "static" / url.path.lstrip("/")).read_bytes(), SUITE_FILES[url.path])
+                cache = "public, max-age=604800, immutable" if "echarts" in url.path else "no-store"  # versioned name
+                return self._send(200, (HERE / "static" / url.path.lstrip("/")).read_bytes(), SUITE_FILES[url.path], cache)
             if url.path == "/api/state":
                 return self._send(200, api_state())
             m = re.match(r"^/api/host/([a-z0-9-]+)$", url.path)
@@ -258,6 +262,14 @@ class Handler(BaseHTTPRequestHandler):
                 if not h:
                     return self._send(404, {"error": "unknown host"})
                 return self._send(200, host_detail(h["name"]))
+            if url.path in ("/api/devices", "/api/network/query"):
+                nw = CONFIG.get("widgets", {}).get("network_watch")
+                if not nw:
+                    return self._send(404, {"error": "Network Watch isn't configured"})
+                if url.path == "/api/devices":
+                    return self._send(200, fetch(nw + "/api/registry", timeout=10))
+                keep = {k: v for k, v in q.items() if k in NETWORK_QUERY_KEYS}  # charts drilling down, no model involved
+                return self._send(200, fetch(nw + "/api/query?" + urllib.parse.urlencode(keep, doseq=True), timeout=20))
             if url.path == "/api/chat/info":
                 return self._send(200, {"backends": chat.backends()})
             if url.path == "/api/logs":
@@ -279,6 +291,8 @@ class Handler(BaseHTTPRequestHandler):
         path = urllib.parse.urlparse(self.path).path
         if path == "/api/chat":
             return self.chat()
+        if path == "/api/devices":
+            return self.save_device()
         if path != "/api/action":
             return self._send(404, {"error": "not found"})
         try:
@@ -296,6 +310,19 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:
             self._send(502, {"error": agent_error(e)})
 
+
+    def save_device(self):
+        nw = CONFIG.get("widgets", {}).get("network_watch")
+        try:
+            body = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+            req = urllib.request.Request(nw + "/api/registry", data=body, method="POST",
+                                         headers={"Content-Type": "application/json", "User-Agent": "olympus"})
+            with urllib.request.urlopen(req, timeout=10) as r:
+                return self._send(200, json.loads(r.read()))
+        except urllib.error.HTTPError as e:
+            return self._send(e.code, {"error": agent_error(e)})
+        except Exception as e:
+            return self._send(502, {"error": agent_error(e)})
 
     def chat(self):
         """Server-sent events: one JSON object per step, tile and answer, as they happen."""

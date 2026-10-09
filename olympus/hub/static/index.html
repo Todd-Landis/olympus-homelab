@@ -81,85 +81,119 @@
   ::view-transition-group(*) { animation-duration: .3s; }
 
 
-  /* ask: chat about the home lab; answers come with live tiles */
-  .ask-bar { display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 14px; }
-  .ask-bar:focus-within { border-color: var(--border-strong); box-shadow: var(--shadow-hover); }
-  .ask-bar > svg { width: 17px; height: 17px; color: var(--muted); flex: none; }
-  .ask-bar input { flex: 1; min-width: 0; border: 0; outline: none; background: none; font: 400 15px var(--sans); color: var(--text); padding: 8px 0; }
-  .ask-bar input::placeholder { color: var(--faint); }
-  .ask-bar select { font-size: 12.5px; padding: 5px 8px; max-width: 170px; }
-  .ask-bar .btn.go { padding: 6px 14px; }
-  .ask-meta { display: flex; gap: 16px; margin-top: 8px; }
-  .ask-meta[hidden], .ask-hints[hidden] { display: none; }
-  .ask { margin-bottom: 18px; }
-  .ask-meta #ask-new { margin-left: auto; }
-  .ask-hints { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+  /* tabs + links to every hosted site */
+  .olnav { display: flex; align-items: center; gap: 16px; margin: -8px 0 18px; flex-wrap: wrap; }
+  .tabs { display: flex; gap: 2px; padding: 3px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; }
+  .tab { text-decoration: none; font: 500 13.5px var(--sans); color: var(--text-2); padding: 6px 16px; border-radius: 7px; }
+  .tab:hover { color: var(--text); background: var(--surface); }
+  .tab[aria-current="page"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(40, 32, 20, .08); }
+  .sites { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin-left: auto; min-width: 0; }
+  .site { display: inline-flex; align-items: center; gap: 7px; flex: none; text-decoration: none; font: 500 12.5px var(--sans); color: var(--text-2); padding: 5px 11px; border: 1px solid var(--border); border-radius: 99px; background: var(--surface); }
+  .site:hover { border-color: var(--border-strong); color: var(--text); }
+  .site .dot { width: 6px; height: 6px; }
+  .site i { font-style: normal; color: var(--faint); }
+
+  /* chat: the main view */
+  .chat { display: flex; flex-direction: column; min-height: calc(100dvh - 150px); }
+  .chat[hidden], main[hidden], .people[hidden] { display: none; }
+  .thread { flex: 1; display: grid; gap: 28px; align-content: start; grid-template-columns: minmax(0, 1fr); padding-bottom: 24px; }
+  .chat-empty { flex: 1; display: grid; place-content: center; text-align: center; padding: 6vh 0 4vh; }
+  .chat-empty[hidden] { display: none; }
+  .chat-empty h1 { margin: 0 0 6px; font: 600 26px var(--sans); letter-spacing: -.02em; }
+  .chat-empty p { margin: 0 0 18px; color: var(--muted); }
+  .ask-hints { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 680px; }
   .ask-hints button { font: 500 13px var(--sans); color: var(--text-2); background: var(--surface); border: 1px solid var(--border); border-radius: 99px; padding: 6px 12px; cursor: pointer; }
   .ask-hints button:hover { border-color: var(--border-strong); color: var(--text); }
-  /* chat mode: typing in the Ask bar hides the dashboard until "Show dashboard" (or Esc) */
-  body:not(.chatting) .ask-thread, body:not(.chatting) .ask-hints { display: none; }
-  body.chatting main { display: none; }
-  body.chatting .ask { min-height: calc(100dvh - 110px); }
-  body.chatting .ask-bar { position: sticky; top: 10px; z-index: 5; box-shadow: 0 -10px 0 var(--bg), var(--shadow-hover); }
-  .ask-thread { display: grid; gap: 22px; margin-top: 10px; grid-template-columns: minmax(0, 1fr); }
-  .ask-thread:empty { display: none; }
-  .turn { display: grid; gap: 10px; padding-bottom: 22px; border-bottom: 1px solid var(--border); grid-template-columns: minmax(0, 1fr); }
-  .turn .q { justify-self: end; max-width: min(80%, 640px); background: var(--surface); border: 1px solid var(--border); border-radius: 12px 12px 4px 12px; padding: 8px 13px; font-weight: 500; }
+  .composer { position: sticky; bottom: 14px; z-index: 5; display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 16px; box-shadow: 0 14px 0 var(--bg), var(--shadow-hover); }
+  .composer:focus-within { border-color: var(--border-strong); }
+  .composer input { flex: 1; min-width: 0; border: 0; outline: none; background: none; font: 400 15.5px var(--sans); color: var(--text); padding: 9px 0; }
+  .composer input::placeholder { color: var(--faint); }
+  .composer select { font-size: 12.5px; padding: 5px 8px; max-width: 150px; }
+  .composer .btn.go { padding: 7px 16px; }
+  .composer-meta { display: flex; justify-content: flex-end; margin-top: 22px; min-height: 18px; }
+  .composer-meta[hidden] { display: none; }
+
+  .turn { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); scroll-margin-top: 16px; }
+  .turn .q { justify-self: end; max-width: min(80%, 640px); background: var(--accent-soft); border-radius: 14px 14px 4px 14px; padding: 9px 14px; font-weight: 500; color: var(--text); }
+  .reply { max-width: 760px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px 14px 14px 14px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .reply .a { font-size: 15.5px; line-height: 1.6; color: var(--text); }
+  .reply .a:empty { display: none; }
+  .reply .a p { margin: 0 0 8px; } .reply .a p:last-child { margin: 0; }
+  .reply .a.err { color: var(--bad); }
+  .reply .a code { font: .9em var(--mono); background: var(--surface-2); padding: 1px 4px; border-radius: 4px; }
+  .reply .note { font-size: 13.5px; color: var(--muted); margin-bottom: 8px; }
   .steps { display: flex; flex-wrap: wrap; gap: 6px; }
   .steps:empty { display: none; }
+  .reply .a:not(:empty) + .steps { margin-top: 12px; padding-top: 10px; border-top: 1px solid #f1ede5; }
   .step { display: inline-flex; align-items: center; gap: 7px; font: 500 12px var(--sans); color: var(--muted); padding: 3px 10px; border: 1px solid var(--border); border-radius: 99px; background: var(--surface-2); }
   .step.err { color: var(--bad); border-color: #efd2cf; background: var(--bad-soft); }
   .step .dot { width: 6px; height: 6px; }
   .tiles { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
-  .tile .scroll { max-height: 360px; overflow: auto; margin-top: 10px; }
   .tiles:empty { display: none; }
+  .tiles > *, .tiles .grid > * { min-width: 0; }
+  .tile .scroll .ledger { min-width: 520px; }
   .tile { padding: 14px 16px; }
   .tile h4 { margin: 0 0 10px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font: 600 13.5px var(--sans); }
   .tile h4 small { font-weight: 400; color: var(--muted); }
-  .tile h4 a { margin-left: auto; font: 500 12.5px var(--sans); color: var(--accent); text-decoration: none; }
+  .tile h4 .acts { margin-left: auto; display: flex; gap: 12px; }
+  .tile h4 .acts a, .tile h4 .acts button { font: 500 12.5px var(--sans); color: var(--accent); text-decoration: none; background: none; border: 0; padding: 0; cursor: pointer; }
+  .tile .crumb { font: 500 12px var(--sans); color: var(--muted); margin-bottom: 4px; }
+  .tile .scroll { max-height: 360px; overflow: auto; margin-top: 10px; }
+  .tile .viz { width: 100%; margin-top: 6px; overflow: hidden; }  /* tooltips are confined to the chart, so nothing useful is clipped */
+  .tile .kpis { margin-bottom: 4px; }
   .tile pre.logs { max-height: 340px; overflow: auto; }
-  .ranked { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 2px; }
-  .ranked li { position: relative; display: flex; gap: 12px; align-items: baseline; padding: 5px 8px; font-size: 13.5px; border-radius: 6px; overflow: hidden; }
-  .ranked li i { position: absolute; inset: 0 auto 0 0; background: #eef3f7; z-index: 0; }
-  .ranked li span { position: relative; z-index: 1; }
-  .ranked .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ranked .v { font: 500 12.5px var(--mono); color: var(--text-2); }
-  .ranked .b { font: 500 11.5px var(--mono); color: var(--bad); min-width: 64px; text-align: right; }
-  .axis { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); margin-top: -6px; }
-  .turn .a { max-width: 75ch; }
-  .turn .a p { margin: 0 0 8px; } .turn .a p:last-child { margin: 0; }
-  .turn .a.err { color: var(--bad); }
-  .turn .a code { font: .9em var(--mono); background: var(--surface-2); padding: 1px 4px; border-radius: 4px; }
-  .turn .note { font-size: 13px; color: var(--muted); }
-  @media (max-width: 760px) { .ask-bar select { max-width: 112px; } }
+  .tile.loading { opacity: .6; }
+  .nowrap { white-space: nowrap; } .brk { word-break: break-all; } .small { font-size: 12px; }
+
+  /* devices & people */
+  .people .ledger input { font: 400 13.5px var(--sans); color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 5px 8px; width: 100%; min-width: 120px; }
+  .people .ledger input:focus { border-color: var(--border-strong); outline: none; }
+  .people .ledger td { vertical-align: top; }
+  .people .ips { font: 11.5px var(--mono); color: var(--faint); margin-top: 3px; }
+  .people .who { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .people .who span { font: 500 12.5px var(--sans); padding: 3px 10px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2); }
+  .people .who b { font-weight: 600; color: var(--text); }
+  @media (max-width: 760px) {
+    .olnav { margin-top: -4px; } .sites { margin-left: 0; width: 100%; }
+    .composer select { max-width: 100px; }
+    .people .hide-sm { display: none; }
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div id="masthead"></div>
-  <section class="ask" id="ask" aria-label="Ask about the home lab">
-    <form class="card ask-bar" id="ask-form" autocomplete="off">
-      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 4.5h12a1.5 1.5 0 0 1 1.5 1.5v6.5A1.5 1.5 0 0 1 16 14H9l-4 3v-3H4a1.5 1.5 0 0 1-1.5-1.5V6A1.5 1.5 0 0 1 4 4.5Z" stroke-linejoin="round"/></svg>
-      <input id="ask-q" maxlength="2000" aria-label="Ask about the home lab" placeholder="Ask about the home lab: “what did the iPhone look up after 11 pm?”">
+  <nav class="olnav" aria-label="Olympus">
+    <div class="tabs"><a class="tab" href="#/" data-tab="chat">Chat</a><a class="tab" href="#/dashboard" data-tab="dashboard">Dashboard</a></div>
+    <div class="sites" id="sites" aria-label="Hosted sites"></div>
+  </nav>
+  <section class="chat" id="chat" aria-label="Ask about the home lab">
+    <div class="chat-empty" id="chat-empty">
+      <h1>Ask about the home lab</h1>
+      <p>Machines, containers, logs, and every device's browsing for the last 30 days.</p>
+      <div class="ask-hints" id="ask-hints">
+        <button type="button">Is everything OK?</button>
+        <button type="button">What did the iPhone look up after 11 pm last night?</button>
+        <button type="button">Who used the network most this week?</button>
+        <button type="button">When is the network usually busiest?</button>
+        <button type="button">Which sites were blocked most this week?</button>
+        <button type="button">Any errors in the pihole logs today?</button>
+      </div>
+    </div>
+    <div class="thread" id="ask-thread" aria-live="polite"></div>
+    <form class="card composer" id="ask-form" autocomplete="off">
+      <input id="ask-q" maxlength="2000" aria-label="Ask about the home lab" placeholder="Ask anything: “what has Sam been browsing tonight?”">
       <select id="ask-backend" aria-label="Model"></select>
       <button class="btn go" id="ask-go">Ask</button>
     </form>
-    <div class="ask-meta" id="ask-meta" hidden>
-      <button class="back" id="ask-dash" title="Esc">← Show dashboard</button>
-      <button class="back" id="ask-show">Show conversation</button>
-      <button class="back" id="ask-new">New conversation</button>
-    </div>
-    <div class="ask-hints" id="ask-hints">
-      <button type="button">Is everything OK?</button>
-      <button type="button">What did the iPhone look up after 11 pm last night?</button>
-      <button type="button">Any errors in the pihole logs today?</button>
-      <button type="button">How busy was the network each hour today?</button>
-      <button type="button">Which sites were blocked most this week?</button>
-    </div>
-    <div class="ask-thread" id="ask-thread" aria-live="polite"></div>
+    <div class="composer-meta" id="ask-meta" hidden><button class="back" id="ask-new" type="button">New conversation</button></div>
   </section>
-  <main>
-    <div id="view" aria-live="polite"></div>
+  <main id="dash" hidden>
+    <div id="view"></div>
+    <section class="people" id="people" aria-label="Devices and people">
+      <div class="sec"><h2>Devices &amp; people</h2><small>Name devices and say who uses them; the chat and Network both use these names</small></div>
+      <div class="card panel" id="people-body"><div class="empty">Loading…</div></div>
+    </section>
   </main>
 </div>
 
@@ -177,6 +211,8 @@
 </div>
 
 <script src="/suite.js"></script>
+<script src="/echarts-6.1.0.min.js"></script>
+<script src="/viz.js"></script>
 <script>
 const { esc, toast, tween } = Suite;
 const $ = (s) => document.querySelector(s);
@@ -299,7 +335,7 @@ function containerRows(list) {
 function hostView(h) {
   const s = h.stats, hist = h.history || [], color = HOSTC[h.name] || "var(--aegean)";
   const st = h.online ? `<span class="status-pill"><span class="dot ok live"></span>Up ${dur(s?.uptime)}</span>` : `<span class="status-pill"><span class="dot ${h.sometimes_off ? "off" : "bad"}"></span>Offline · last seen ${ago(h.last_seen)}</span>`;
-  const head = `<button class="back" data-nav="">← All machines</button>
+  const head = `<button class="back" data-nav="dashboard">← Dashboard</button>
     <div class="hero" style="--hc:${color}"><h1 style="view-transition-name: host-${h.name}">${esc(h.label)}</h1><span class="role">${esc(h.role || "")}</span>${st}</div>
     ${h.alerts.length ? `<div style="margin-top:16px">${banner(h.alerts)}</div>` : ""}`;
   const svcs = h.services?.length ? `<div class="sec"><h2>Services</h2></div><div class="grid services">${h.services.map(svcTile).join("")}</div>` : "";
@@ -332,14 +368,29 @@ function hostView(h) {
 }
 
 // ------------------------------------------------------------------ routing + live polling
-let route = location.hash.replace(/^#\/?/, ""), lastHtml = "", busy = false, lastOk = 0, lastState = null;
-const setRoute = (r) => { location.hash = r ? "#/" + r : ""; };
+// "" = chat (the main view); "dashboard" and "host/<name>" = the Dashboard tab.
+let route = location.hash.replace(/^#\/?/, ""), lastHtml = "", busy = false, lastOk = 0, lastState = null, sitesHtml = "";
+const setRoute = (r) => { location.hash = "#/" + r; };
+const onDash = () => route === "dashboard" || route.startsWith("host/");
+function show() {
+  const dash = onDash();
+  $("#chat").hidden = dash; $("#dash").hidden = !dash; $("#people").hidden = route !== "dashboard";
+  document.querySelectorAll(".tab").forEach((a) => (a.dataset.tab === (dash ? "dashboard" : "chat") ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current")));
+  if (route === "dashboard") People.load();
+  if (!dash) Ask.focusSoon();
+}
 window.addEventListener("hashchange", () => {
   route = location.hash.replace(/^#\/?/, "");
-  if (route) Ask.exit(true);  // a machine card in an answer opens that machine
-  Suite.transition(async () => { lastHtml = ""; await refresh(true); window.scrollTo(0, 0); });
+  Suite.transition(async () => { show(); lastHtml = ""; await refresh(true); window.scrollTo(0, onDash() ? 0 : document.body.scrollHeight); });
 });
 async function api(path, opts) { const r = await fetch(path, opts); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || r.statusText); return j; }
+function renderSites(services) {
+  const html = services.filter((s) => s.url).map((s) => {
+    const away = !s.up && awayHosts.has(s.host), st = s.up == null || away ? "off" : s.up ? "ok" : "bad";
+    return `<a class="site" href="${esc(s.url)}" target="_blank" rel="noopener" title="${esc(s.host)}${s.desc ? " · " + esc(s.desc) : ""} · ${s.up ? "up" : s.up === false ? (away ? "offline" : "down") : "checking"}"><span class="dot ${st}"></span>${esc(s.name)}<i>↗</i></a>`;
+  }).join("");
+  if (html !== sitesHtml) $("#sites").innerHTML = sitesHtml = html;
+}
 async function refresh(force = false) {
   if ((busy && !force) || (document.hidden && !force)) return;
   busy = true;
@@ -350,16 +401,54 @@ async function refresh(force = false) {
     else {
       lastState = await api("/api/state");
       awayHosts = new Set(lastState.hosts.filter((x) => x.sometimes_off && !x.online).map((x) => x.name));
+      renderSites(lastState.services);
       html = overview(lastState); document.title = lastState.alerts.length ? `(${lastState.alerts.length}) Olympus` : "Olympus";
     }
     lastOk = Date.now();
-    if (html !== lastHtml) { const y = window.scrollY; $("#view").innerHTML = html; lastHtml = html; if (!force) window.scrollTo(0, y); tween($("#view")); }
+    if (onDash() && html !== lastHtml) { const y = window.scrollY; $("#view").innerHTML = html; lastHtml = html; if (!force) window.scrollTo(0, y); tween($("#view")); }
   } catch (e) {
-    if (!lastHtml) $("#view").innerHTML = `<div class="card panel"><div class="empty">Couldn't load: ${esc(e.message)}</div></div>`;
+    if (onDash() && !lastHtml) $("#view").innerHTML = `<div class="card panel"><div class="empty">Couldn't load: ${esc(e.message)}</div></div>`;
   } finally { busy = false; Suite.setLive(Date.now() - lastOk < 15000); }
 }
 setInterval(refresh, 5000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { refresh(); if (logState.open) loadLogs(); } });
+
+// ------------------------------------------------------------------ devices & people (Dashboard tab)
+const People = (() => {
+  const body = $("#people-body");
+  let list = [];
+  async function load() {
+    try { list = await api("/api/devices"); render(); }
+    catch (e) { body.innerHTML = `<div class="empty">Couldn't load devices: ${esc(e.message)}</div>`; }
+  }
+  function render() {
+    const people = {};
+    list.forEach((d) => d.people.forEach((p) => (people[p] ||= []).push(d.name)));
+    const names = Object.keys(people).sort((a, b) => a.localeCompare(b));
+    body.innerHTML = `${names.length ? `<div class="who">${names.map((p) => `<span title="${esc(people[p].join(", "))}"><b>${esc(p)}</b> · ${people[p].length} device${people[p].length > 1 ? "s" : ""}</span>`).join("")}</div>`
+        : `<p class="muted" style="margin:0 0 12px">Nobody assigned yet. Type who uses a device (comma-separated for shared ones) and save.</p>`}
+      <datalist id="people-list">${names.map((p) => `<option value="${esc(p)}">`).join("")}</datalist>
+      <div style="overflow-x:auto"><table class="ledger"><tr><th>Device</th><th>Used by</th><th class="r hide-sm">Lookups (24 h)</th><th class="hide-sm">Last seen</th><th></th></tr>
+      ${list.map((d, i) => `<tr data-i="${i}"><td><input name="name" value="${esc(d.name)}" maxlength="60" aria-label="Name for ${esc(d.name)}"><div class="ips">${esc(d.ips.join(" · "))}</div></td>
+        <td><input name="people" value="${esc(d.people.join(", "))}" placeholder="e.g. Todd, Sam" list="people-list" aria-label="People using ${esc(d.name)}"></td>
+        <td class="r mono hide-sm">${N(d.lookups_24h)}</td><td class="hide-sm muted nowrap">${d.last ? ago(d.last) : "not seen"}</td>
+        <td><button class="btn" data-save="${i}" disabled>Save</button></td></tr>`).join("")}</table></div>`;
+  }
+  body.addEventListener("input", (e) => { const tr = e.target.closest("tr[data-i]"); if (tr) tr.querySelector("[data-save]").disabled = false; });
+  body.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.matches("input")) { e.preventDefault(); e.target.closest("tr")?.querySelector("[data-save]:not(:disabled)")?.click(); } });
+  body.addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-save]"); if (!b) return;
+    const tr = b.closest("tr"), d = list[+tr.dataset.i];
+    const name = tr.querySelector("[name=name]").value.trim();
+    const people = tr.querySelector("[name=people]").value.split(",").map((x) => x.trim()).filter(Boolean);
+    b.disabled = true; b.textContent = "Saving…";
+    try {
+      await api("/api/devices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: d.name, new_name: name, people }) });
+      toast(`Saved ${name}`); await load();
+    } catch (err) { toast(err.message); b.disabled = false; b.textContent = "Save"; }
+  });
+  return { load };
+})();
 
 // ------------------------------------------------------------------ logs + actions
 const logState = { open: false, host: null, id: null, lines: [] };
@@ -421,9 +510,12 @@ document.addEventListener("click", (e) => {
 });
 document.addEventListener("keydown", (e) => {
   const typing = /input|textarea|select/i.test(document.activeElement?.tagName || "");
-  if (e.key === "Escape" && !e.target.closest?.("#oracle") && !document.querySelector("#oracle.open")) { if (logState.open) closeLogs(); else if (Ask.active()) Ask.exit(); else if (route) setRoute(""); }
+  const palette = e.target.closest?.("#oracle") || document.querySelector("#oracle.open");
+  if (e.key === "Escape" && !palette) { if (logState.open) closeLogs(); else if (route.startsWith("host/")) setRoute("dashboard"); }
   if (e.key === "Enter" && document.activeElement?.dataset?.host) setRoute("host/" + document.activeElement.dataset.host);
-  if (!typing && !e.ctrlKey && !e.metaKey && /^[1-9]$/.test(e.key) && lastState?.hosts[+e.key - 1]) setRoute("host/" + lastState.hosts[+e.key - 1].name);
+  if (typing || palette || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (!onDash() && e.key.length === 1 && e.key !== "/") Ask.focus();  // on the Chat tab, just start typing
+  else if (onDash() && /^[1-9]$/.test(e.key) && lastState?.hosts[+e.key - 1]) setRoute("host/" + lastState.hosts[+e.key - 1].name);
 });
 
 // ------------------------------------------------------------------ search: machines, services, containers
@@ -449,51 +541,72 @@ Suite.Oracle.register(async (q) => {
 });
 
 
-// ------------------------------------------------------------------ ask: questions answered with live tiles
+// ------------------------------------------------------------------ chat: answers first, then tiles with charts
 const when = (t) => new Date(t * 1000).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 function md(s) {
   const h = esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`([^`\n]+)`/g, "<code>$1</code>");
   return h.split(/\n{2,}/).map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`).join("");
 }
-function netTile(t) {
-  const who = t.devices_matched?.length ? t.devices_matched.join(", ") : t.device || "All devices";
+const node = (html) => { const d = document.createElement("div"); d.innerHTML = html.trim(); return d.firstElementChild; };
+const NW_URL = "http://helios:8095/";
+
+function networkNode(t, crumb) {
+  const who = t.people_matched?.length ? t.people_matched.join(", ") : t.devices_matched?.length ? t.devices_matched.join(", ") : t.person || t.device || "Everyone";
   const what = [who, t.domain ? `“${t.domain}”` : "", t.status !== "any" ? `${t.status} only` : "", `${when(t.start)} – ${when(t.end)}`].filter(Boolean).join(" · ");
-  let body;
-  if (!t.rows.length) body = `<div class="empty">Nothing matched.</div>`;
-  else if (t.group === "none") {
-    body = `<div class="scroll"><table class="ledger"><tr><th>Time</th><th>Device</th><th>Domain</th><th></th></tr>${t.rows.map((r) =>
-      `<tr><td class="mono" style="white-space:nowrap">${esc(when(r.t))}</td><td>${esc(r.device)}</td><td style="word-break:break-all">${esc(r.domain)}</td><td>${r.blocked ? `<span class="badge bad">blocked</span>` : ""}</td></tr>`).join("")}</table></div>`;
-  } else if (t.group === "hour" || t.group === "day") {
-    const max = Math.max(1, ...t.rows.map((r) => r.queries));
-    body = `<div class="bars" style="height:72px">${t.rows.map((r) => `<span style="height:${(100 * r.queries / max).toFixed(1)}%" title="${esc(when(r.t))}: ${N(r.queries)} lookups, ${N(r.blocked)} blocked"></span>`).join("")}</div>
-      <div class="axis"><span>${esc(when(t.rows[0].t))}</span><span>${esc(when(t.rows.at(-1).t))}</span></div>`;
-  } else {
-    const max = Math.max(1, ...t.rows.map((r) => r.queries));
-    body = `<ul class="ranked">${t.rows.map((r) => `<li title="first ${esc(when(r.first))} · last ${esc(when(r.last))}"><i style="width:${(100 * r.queries / max).toFixed(1)}%"></i>
-      <span class="name">${esc(r.name)}</span><span class="b">${r.blocked ? N(r.blocked) + " blocked" : ""}</span><span class="v">${N(r.queries)}</span></li>`).join("")}</ul>`;
-  }
-  return `<div class="card tile"><h4>Network <small>${esc(what)}</small><a href="http://helios:8095/" target="_blank" rel="noopener">Open ↗</a></h4>
-    <div class="kpis"><div class="kpi"><div class="n">${N(t.queries)}</div><div class="l">lookups</div></div><div class="kpi"><div class="n">${N(t.blocked)}</div><div class="l">blocked</div></div></div>${body}</div>`;
+  const tableFirst = t.group === "none";
+  return node(`<div class="card tile">${crumb ? `<div class="crumb">↳ ${esc(crumb)}</div>` : ""}
+    <h4>Network <small>${esc(what)}</small><span class="acts">${t.rows.length ? `<button type="button" data-table>${tableFirst ? "Hide table" : "Table"}</button>` : ""}<a href="${NW_URL}" target="_blank" rel="noopener">Open ↗</a></span></h4>
+    <div class="kpis"><div class="kpi"><div class="n">${N(t.queries)}</div><div class="l">lookups</div></div><div class="kpi"><div class="n">${N(t.blocked)}</div><div class="l">blocked</div></div></div>
+    ${t.rows.length ? `<div class="viz" role="img" aria-label="Chart of ${esc(what)}; the table has the same numbers"></div><div class="scroll" ${tableFirst ? "" : "hidden"}>${Viz.networkTable(t)}</div>` : `<div class="empty">Nothing matched.</div>`}</div>`);
 }
-function tileHtml(t) {
-  if (t.kind === "network") return netTile(t);
+// Clicking a chart asks Network Watch directly (no model): the deeper view appears right under the chart.
+async function drill(parent, t, params, label) {
+  const q = { start: t.start, end: t.end, status: t.status === "any" ? "" : t.status, device: t.device, person: t.person, domain: t.domain, ...params };
+  const qs = new URLSearchParams(Object.entries(q).filter(([, v]) => v != null && v !== ""));
+  const wait = node(`<div class="card tile loading"><div class="crumb">↳ ${esc(label)}</div><div class="empty">Loading…</div></div>`);
+  parent.after(wait);
+  wait.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  try { const r = await api("/api/network/query?" + qs); const n = addTile(null, { kind: "network", ...r }, label, wait); wait.remove(); n.scrollIntoView({ block: "nearest" }); }
+  catch (e) { wait.classList.remove("loading"); wait.querySelector(".empty").textContent = "Couldn't load: " + e.message; }
+}
+function hostNode(h) {
+  const rows = (h.containers || []).map((c) => `<tr><td><div class="cname">${esc(c.name)}</div><div class="img">${esc(c.image)}</div></td>
+    <td><span class="badge ${c.health === "unhealthy" ? "bad" : c.state === "running" ? "ok" : "plain"}">${esc(c.health === "unhealthy" ? "unhealthy" : c.state)}</span></td>
+    <td class="r mono">${c.cpu != null ? c.cpu.toFixed(1) + "%" : "–"}</td><td class="r mono">${c.mem ? bytes(c.mem.used) : "–"}</td></tr>`).join("");
+  return node(`<div class="grid tiles">${hostCard(h)}
+    ${(h.history || []).length > 1 ? `<div class="card tile"><h4>${esc(h.label)} <small>CPU and memory, last 15 minutes</small></h4><div class="viz" data-host-viz role="img" aria-label="CPU and memory history"></div></div>` : ""}
+    ${rows ? `<div class="card panel" style="overflow-x:auto;padding-top:6px"><table class="ledger"><tr><th>Container</th><th>State</th><th class="r">CPU</th><th class="r">Memory</th></tr>${rows}</table></div>` : ""}</div>`);
+}
+function tileNode(t, crumb) {
+  if (t.kind === "network") return networkNode(t, crumb);
+  if (t.kind === "host") return hostNode(t.host);
   if (t.kind === "status") {
     const down = t.services.filter((s) => s.up === false && !awayHosts.has(s.host));
-    return `<div class="grid tiles">${t.alerts.length ? banner(t.alerts) : ""}<div class="grid hosts">${t.hosts.map(hostCard).join("")}</div>
-      ${down.length ? `<div class="grid services">${down.map(svcTile).join("")}</div>` : `<div class="banner"><span class="dot ok"></span>All ${t.services.length} services up</div>`}</div>`;
-  }
-  if (t.kind === "host") {
-    const h = t.host, rows = (h.containers || []).map((c) => `<tr><td><div class="cname">${esc(c.name)}</div><div class="img">${esc(c.image)}</div></td>
-      <td><span class="badge ${c.health === "unhealthy" ? "bad" : c.state === "running" ? "ok" : "plain"}">${esc(c.health === "unhealthy" ? "unhealthy" : c.state)}</span></td>
-      <td class="r mono">${c.cpu != null ? c.cpu.toFixed(1) + "%" : "–"}</td><td class="r mono">${c.mem ? bytes(c.mem.used) : "–"}</td></tr>`).join("");
-    return `<div class="grid tiles">${hostCard(h)}${rows ? `<div class="card panel" style="overflow-x:auto;padding-top:6px"><table class="ledger"><tr><th>Container</th><th>State</th><th class="r">CPU</th><th class="r">Memory</th></tr>${rows}</table></div>` : ""}</div>`;
+    return node(`<div class="grid tiles">${t.alerts.length ? banner(t.alerts) : ""}<div class="grid hosts">${t.hosts.map(hostCard).join("")}</div>
+      ${down.length ? `<div class="grid services">${down.map(svcTile).join("")}</div>` : `<div class="banner"><span class="dot ok"></span>All ${t.services.length} services up</div>`}</div>`);
   }
   if (t.kind === "logs") {
-    return `<div class="card tile"><h4>${esc(t.container)} logs <small>${esc(t.host)} · ${t.contains ? `${N(t.lines.length)} lines with “${esc(t.contains)}” of ` : ""}${N(t.read)} read</small></h4>
-      <pre class="logs">${t.lines.map((l) => logLine(l, t.contains)).join("\n") || `<span class="muted">No matching lines.</span>`}</pre></div>`;
+    return node(`<div class="card tile"><h4>${esc(t.container)} logs <small>${esc(t.host)} · ${t.contains ? `${N(t.lines.length)} lines with “${esc(t.contains)}” of ` : ""}${N(t.read)} read</small></h4>
+      <pre class="logs">${t.lines.map((l) => logLine(l, t.contains)).join("\n") || `<span class="muted">No matching lines.</span>`}</pre></div>`);
   }
-  if (t.kind === "models") return aiWidget(t.ollama).replace('class="card widget"', 'class="card widget tile"');
-  return "";
+  if (t.kind === "models") return node(aiWidget(t.ollama).replace('class="card widget"', 'class="card widget tile"'));
+  return null;
+}
+// Build a tile, put it in place (appended to `into`, or after `after`), then draw its charts.
+function addTile(into, t, crumb, after) {
+  const n = tileNode(t, crumb);
+  if (!n) return null;
+  after ? after.after(n) : into.append(n);
+  tween(n);
+  if (t.kind === "network") {
+    const v = n.querySelector(".viz");
+    if (v && !Viz.mount(v, Viz.networkOption(t), (params, label) => drill(n, t, params, label))) { v.remove(); n.querySelector(".scroll")?.removeAttribute("hidden"); }
+    n.querySelector("[data-table]")?.addEventListener("click", (e) => {
+      const tbl = n.querySelector(".scroll"); tbl.hidden = !tbl.hidden; e.target.textContent = tbl.hidden ? "Table" : "Hide table";
+    });
+  }
+  if (t.kind === "host") { const v = n.querySelector("[data-host-viz]"); if (v && !Viz.mount(v, Viz.hostOption(t.host))) v.closest(".tile").remove(); }
+  return n;
 }
 
 const Ask = (() => {
@@ -508,36 +621,13 @@ const Ask = (() => {
     sel.hidden = backends.length < 2;
   }).catch(() => { sel.innerHTML = ""; });
   sel.addEventListener("change", () => { try { localStorage.setItem("olympus.ask.backend", sel.value); } catch {} });
-  $("#ask-new").addEventListener("click", () => { conv = null; thread.innerHTML = ""; sync(); input.focus(); });
-  $("#ask-dash").addEventListener("click", () => exit());
-  $("#ask-show").addEventListener("click", () => { enter(); input.focus(); });
-  $("#ask-hints").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b && !busy) { input.value = ""; ask(b.textContent); } });
-  input.addEventListener("input", () => { if (input.value.trim()) enter(); });
-
-  // Chat mode keeps you in the conversation: the dashboard hides until you ask for it back.
-  const active = () => document.body.classList.contains("chatting");
-  function sync() {
-    const turns = thread.children.length, on = active();
-    $("#ask-dash").hidden = !on;
-    $("#ask-show").hidden = on || !turns;
-    $("#ask-show").textContent = `Show conversation (${turns})`;
-    $("#ask-new").hidden = !turns;
-    $("#ask-meta").hidden = !on && !turns;
-    $("#ask-hints").hidden = !!turns;
-  }
-  function enter() {
-    if (active()) return;
-    Suite.transition(() => { document.body.classList.add("chatting"); sync(); window.scrollTo(0, 0); });
-  }
-  function exit(now) {
-    if (!active()) return;
-    const go = () => { document.body.classList.remove("chatting"); sync(); input.blur(); };
-    now ? go() : Suite.transition(() => { go(); window.scrollTo(0, 0); });  // now: the caller scrolls to something on the dashboard next
-  }
+  $("#ask-new").addEventListener("click", () => { Viz.disposeIn(thread); thread.innerHTML = ""; conv = null; sync(); input.focus(); });
+  $("#ask-hints").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b && !busy) ask(b.textContent); });
+  function sync() { const n = thread.children.length; $("#chat-empty").hidden = !!n; $("#ask-meta").hidden = !n; }
   sync();
 
   function handle(ev, turn) {
-    const steps = turn.querySelector(".steps"), tiles = turn.querySelector(".tiles"), a = turn.querySelector(".a");
+    const reply = turn.querySelector(".reply"), steps = reply.querySelector(".steps"), a = reply.querySelector(".a");
     if (!["start", "tile"].includes(ev.type)) steps.querySelector(".wait")?.remove();  // the model is working again
     if (ev.type === "start") conv = ev.conv;
     else if (ev.type === "step") steps.insertAdjacentHTML("beforeend", `<span class="step" data-step="${esc(ev.id)}"><span class="dot warn live"></span>${esc(ev.label)}</span>`);
@@ -545,8 +635,8 @@ const Ask = (() => {
       const el = steps.querySelector(`[data-step="${CSS.escape(ev.id)}"]`);
       if (el) { el.classList.toggle("err", !!ev.error); el.querySelector(".dot").className = `dot ${ev.error ? "bad" : "ok"}`; if (ev.error) el.title = ev.error; }
     }
-    else if (ev.type === "tile") { tiles.insertAdjacentHTML("beforeend", tileHtml(ev.tile)); tween(tiles); }
-    else if (ev.type === "note") tiles.insertAdjacentHTML("beforebegin", `<div class="note">${md(ev.text)}</div>`);
+    else if (ev.type === "tile") addTile(turn.querySelector(".tiles"), ev.tile);
+    else if (ev.type === "note") a.insertAdjacentHTML("beforebegin", `<div class="note">${md(ev.text)}</div>`);
     else if (ev.type === "answer") a.innerHTML = md(ev.text);
     else if (ev.type === "error") { a.classList.add("err"); a.textContent = ev.text; }
     if (ev.type === "step" || ev.type === "step_done") {
@@ -555,10 +645,11 @@ const Ask = (() => {
   }
   async function ask(q) {
     busy = true; go.disabled = true; go.textContent = "…";
-    const turn = document.createElement("article");
-    turn.className = "turn";
-    turn.innerHTML = `<div class="q">${esc(q)}</div><div class="steps"><span class="step wait"><span class="dot warn live"></span>Thinking</span></div><div class="tiles"></div><div class="a"></div>`;
-    enter(); thread.prepend(turn); sync();
+    const turn = node(`<article class="turn"><div class="q">${esc(q)}</div>
+      <div class="reply"><div class="a"></div><div class="steps"><span class="step wait"><span class="dot warn live"></span>Thinking</span></div></div>
+      <div class="tiles"></div></article>`);
+    thread.append(turn); sync();
+    turn.scrollIntoView({ block: "start", behavior: "smooth" });  // the question at the top, the answer right under it
     try {
       const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: q, backend: sel.value, conv }) });
       if (!r.ok || !r.body) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
@@ -589,9 +680,10 @@ const Ask = (() => {
     input.value = "";
     ask(q);
   });
-  return { focus: () => input.focus(), exit, active };
+  return { focus: () => input.focus(), focusSoon: () => { if (matchMedia("(pointer: fine)").matches) setTimeout(() => input.focus(), 50); } };
 })();
 Suite.mount({ app: "olympus" });
+show();
 refresh(true);
 </script>
 </body>

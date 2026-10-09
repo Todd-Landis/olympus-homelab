@@ -57,8 +57,13 @@ art project; keep it subtle, modern and readable. No dark mode.
    set `HOST_NAME`, `BIND` to its Tailscale IP). AMD GPU, so no nvidia-smi; temps come from hwmon.
 6. Daytime look of the sun arc not visually verified (only seen at night).
 7. Possible: add a login to Olympus/Network if the tailnet is ever shared.
-9. **Olympus chat** (the "Ask" bar at the top of http://helios/): questions answered by a model that calls read-only
-   tools (machine status, container logs, Network Watch's new `/api/query`) and shows each result as a tile.
+9. **Olympus chat** is the main view of http://helios/ (the old overview is the **Dashboard** tab; links to every hosted
+   site sit in the header). Questions are answered by a model that calls read-only tools (machine status, container
+   logs, Network Watch's `/api/query`); the answer text comes first, then tiles with charts.
+   - Charts: Apache ECharts 6.1.0, vendored in `suite/vendor/` (Apache-2.0), drawn by `olympus/hub/static/viz.js`.
+     Clicking a bar drills down through the hub's `/api/network/query` without asking the model again.
+   - Devices & people: edited on the Dashboard tab; stored by Network Watch in `data/names.json` (renames, all IPs of
+     a device) and `data/people.json` (who uses what). The chat can filter and group by person.
    - Local model is `chat.ollama.model` in `olympus/hub/config.json` (must be installed on helios: `ollama pull <name>`).
    - **Local only for now** (Todd's choice; a Pro subscription doesn't cover API use). To turn Claude back on, add
      `"claude": {"model": "claude-opus-5-5", "effort": "medium", "key_file": "/secrets/anthropic.key"}` under `chat`

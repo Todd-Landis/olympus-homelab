@@ -24,11 +24,11 @@ All three dashboards share one look from `suite/` (light, Inter, `Ctrl K` search
 ## Layout
 
 ```
-olympus/            hub (app.py, chat.py, config.json, static/index.html) + agent (agent.py)
+olympus/            hub (app.py, chat.py, config.json, static/index.html + viz.js) + agent (agent.py)
   image/            Dockerfile for the hub (adds the anthropic package for chat's Claude option)
   agent-horae/      compose file for the agent on horae
 pihole-watch/       Network Watch: syncs Pi-hole's query log into SQLite, serves the browsing UI
-suite/              shared CSS/JS (+ horae-specific overrides.css / mount.js)
+suite/              shared CSS/JS (+ horae-specific overrides.css / mount.js); vendor/ = ECharts
 horae/
   scripts/          pi-setup.sh (stack install), pi-extras.sh (logs, backups, Tailscale),
                     pihole-hostnet.sh, exit-node.sh, rename-horae.sh
