@@ -31,9 +31,9 @@ horae_stack() {
   scp -q horae/stack/docker-compose.yml synestri@horae:/opt/pihub/
   scp -q horae/scripts/matter-setup.sh synestri@horae:
   # The Matter data dir needs root to create; until then, leave the stack alone.
+  # .env (Pi-hole password) is root-only, so applying the stack needs sudo on the Pi.
   if ssh synestri@horae 'test -d /opt/pihub/matter'; then
-    ssh synestri@horae 'cd /opt/pihub && docker compose up -d'
-    echo "horae stack: deployed"
+    echo "horae stack: files copied. Apply on the Pi:  ssh synestri@horae, then  sudo bash -c 'cd /opt/pihub && docker compose up -d'"
   else
     echo "horae stack: files copied. First time: ssh horae, then run  sudo bash ~/matter-setup.sh"
   fi

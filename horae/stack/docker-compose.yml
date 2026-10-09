@@ -11,6 +11,8 @@ services:
       FTLCONF_webserver_port: "8080o,8443os,[::]:8080o,[::]:8443os"   # admin: http://<pi>:8080/admin
       FTLCONF_dns_listeningMode: "all"
       FTLCONF_database_DBinterval: "300"
+      FTLCONF_dns_hosts: "192.168.50.2 horae.home"                    # local name for the Pi
+      FTLCONF_dns_revServers: "true,192.168.50.0/24,192.168.50.1,lan" # ask the ASUS for LAN device names
     volumes:
       - ./pihole:/etc/pihole
     cap_add:
