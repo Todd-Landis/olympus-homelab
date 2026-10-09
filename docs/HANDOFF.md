@@ -53,8 +53,8 @@ art project; keep it subtle, modern and readable. No dark mode.
    Don't route the token through chat; have him paste it into a file on the server himself.
 4. **This PC**: set Wi-Fi DNS to 192.168.1.224 (optional once the ASUS is in) and switch the network profile to **Private**
    (Windows blocks mDNS on Public, which is why `horae.local` doesn't resolve here).
-5. **hephaestus**: install the Olympus agent when it's booted into Ubuntu (copy `olympus/agent-horae/docker-compose.yml`,
-   set `HOST_NAME`, `BIND` to its Tailscale IP). AMD GPU, so no nvidia-smi; temps come from hwmon.
+5. **hephaestus**: agent ready in `olympus/agent-hephaestus/` (`./deploy.sh hephaestus-agent` while it's in Ubuntu; not part
+   of `all` because the tower is often off). AMD GPU stats come from `/sys/class/drm` (agent.py `amd_gpu`); temps from hwmon.
 6. Daytime look of the sun arc not visually verified (only seen at night).
 7. Possible: add a login to Olympus/Network if the tailnet is ever shared.
 9. **Olympus chat** is the main view of http://helios/ (the old overview is the **Dashboard** tab; links to every hosted

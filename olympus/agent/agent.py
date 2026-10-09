@@ -55,6 +55,20 @@ class Host:
         self.prev_units = {}
         self.snapshot = {}
         self.has_gpu = shutil.which("nvidia-smi") is not None
+        self.amd = None if self.has_gpu else self.find_amd()
+
+    def find_amd(self):
+        """The AMD card with the most VRAM (skips an integrated GPU), read from sysfs: no tools needed."""
+        best = None
+        base = f"{SYS}/class/drm"
+        for card in sorted(os.listdir(base)) if os.path.isdir(base) else []:
+            dev = f"{base}/{card}/device"
+            if not re.match(r"^card\d+$", card) or read(f"{dev}/vendor") != "0x1002" or read(f"{dev}/gpu_busy_percent") is None:
+                continue
+            vram = int(read(f"{dev}/mem_info_vram_total", "0") or 0)
+            if not best or vram > best[1]:
+                best = (dev, vram)
+        return best[0] if best else None
 
     def cpu(self):
         fields = [int(x) for x in read(f"{PROC}/stat").splitlines()[0].split()[1:]]
@@ -132,7 +146,24 @@ class Host:
                         "status": read(f"{base}/{ps}/status"), "ac": ac}
         return None
 
+    def amd_gpu(self):
+        dev = self.amd
+        num = lambda x: float(x) if x and re.match(r"^\d+$", x) else None
+        hw = next((f"{dev}/hwmon/{h}" for h in sorted(os.listdir(f"{dev}/hwmon"))), None) if os.path.isdir(f"{dev}/hwmon") else None
+        temp = num(read(f"{hw}/temp1_input")) if hw else None
+        power = num(read(f"{hw}/power1_average") or read(f"{hw}/power1_input")) if hw else None
+        used, total = num(read(f"{dev}/mem_info_vram_used")), num(read(f"{dev}/mem_info_vram_total"))
+        return {"name": read(f"{dev}/product_name") or "AMD Radeon", "util": num(read(f"{dev}/gpu_busy_percent")),
+                "mem_used": round(used / 2**20) if used is not None else None,      # MiB, like nvidia-smi
+                "mem_total": round(total / 2**20) if total is not None else None,
+                "temp": temp / 1000 if temp is not None else None, "power": power / 1e6 if power is not None else None}
+
     def gpu(self):
+        if self.amd:
+            try:
+                return self.amd_gpu()
+            except OSError:
+                return None
         if not self.has_gpu:
             return None
         try:
