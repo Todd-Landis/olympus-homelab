@@ -1,0 +1,17 @@
+- Home:
+    - Home Assistant:
+        href: http://horae:8123
+        description: Smart home
+        icon: home-assistant.png
+        container: homeassistant
+        # Live stats: add a widget here once you have a Home Assistant long-lived token.
+    - Pi-hole:
+        href: http://horae:8080/admin
+        description: Network ad blocking
+        icon: pi-hole.png
+        container: pihole
+        widget:
+          type: pihole
+          url: http://host.docker.internal:8080
+          version: 6
+          key: "{{HOMEPAGE_VAR_PIHOLE_KEY}}"

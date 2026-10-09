@@ -1,0 +1,18 @@
+- resources:
+    label: horae
+    cpu: true
+    memory: true
+    disk: /
+    cputemp: true
+    tempmin: 0
+    tempmax: 85
+    uptime: true
+    units: imperial
+- search:
+    provider: duckduckgo
+    target: _blank
+- datetime:
+    text_size: md
+    format:
+      dateStyle: medium
+      timeStyle: short

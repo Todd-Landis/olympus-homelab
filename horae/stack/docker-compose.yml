@@ -1,0 +1,45 @@
+# Edit this file, then: cd /opt/pihub && docker compose up -d
+services:
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    restart: unless-stopped
+    network_mode: host    # sees real client IPs (LAN + Tailscale); DNS on :53
+    environment:
+      TZ: ${TZ}
+      FTLCONF_webserver_api_password: ${PIHOLE_PASSWORD}
+      FTLCONF_webserver_port: "8080o,8443os,[::]:8080o,[::]:8443os"   # admin: http://<pi>:8080/admin
+      FTLCONF_dns_listeningMode: "all"
+      FTLCONF_database_DBinterval: "300"
+    volumes:
+      - ./pihole:/etc/pihole
+    cap_add:
+      - SYS_NICE
+
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: homeassistant
+    restart: unless-stopped
+    network_mode: host    # needed for device discovery; UI on :8123
+    privileged: true
+    environment:
+      TZ: ${TZ}
+    volumes:
+      - ./homeassistant:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    restart: unless-stopped
+    ports:
+      - "80:3000"         # Dashboard: http://<pi>/
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # reach Pi-hole on the host
+    environment:
+      HOMEPAGE_ALLOWED_HOSTS: "*"   # LAN-only box; tighten to "pihub.local,192.168.x.x" if you like
+      HOMEPAGE_VAR_PIHOLE_KEY: ${PIHOLE_PASSWORD}
+    volumes:
+      - ./homepage:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro

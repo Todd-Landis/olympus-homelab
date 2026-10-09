@@ -1,0 +1,38 @@
+# Olympus on helios: the dashboard (http://helios/) and helios' own agent.
+#   Start/update:  cd ~/olympus && docker compose up -d
+services:
+  olympus:
+    image: python:3.14-slim
+    container_name: olympus
+    restart: unless-stopped
+    init: true                         # tini as PID 1: stops/restarts take ~1 s, not 10
+    network_mode: host                 # binds port 80 on helios' Tailscale IP only (BIND)
+    command: ["python", "-u", "-B", "/app/app.py"]
+    environment:
+      BIND: 100.88.170.59
+      PORT: "80"
+      TZ: America/New_York
+    volumes:
+      - ./hub:/app:ro
+
+  olympus-agent:
+    image: python:3.14-slim
+    container_name: olympus-agent
+    restart: unless-stopped
+    init: true                         # tini as PID 1: stops/restarts take ~1 s, not 10
+    network_mode: host                 # sees real client IPs; answers only ALLOW
+    command: ["python", "-u", "-B", "/agent/agent.py"]
+    gpus: all                          # lets nvidia-smi report the GTX 1060
+    environment:
+      HOST_NAME: helios
+      BIND: 100.88.170.59
+      ALLOW: 100.88.170.59             # only the Olympus hub (on helios) may ask
+      DISKS: /,/srv/models             # local disks only; the CIFS share would hang when the PC sleeps
+      UNITS: dragonwilds,dragonwilds-version-watch
+      NVIDIA_DRIVER_CAPABILITIES: utility
+    volumes:
+      - ./agent/agent.py:/agent/agent.py:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro,rslave
+      - /var/run/docker.sock:/var/run/docker.sock

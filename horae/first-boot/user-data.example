@@ -1,0 +1,24 @@
+#cloud-config
+# Template for the Pi's /boot/firmware/user-data (Raspberry Pi OS uses cloud-init).
+# Fill in the two placeholders before copying to the SD card. Never commit the real file.
+#   Password hash:  openssl passwd -6
+hostname: horae
+manage_etc_hosts: true
+timezone: America/New_York
+
+users:
+- name: synestri
+  groups: users,adm,dialout,audio,netdev,video,plugdev,cdrom,games,input,gpio,spi,i2c,render,sudo
+  shell: /bin/bash
+  lock_passwd: false
+  passwd: <PASSWORD_HASH>
+  ssh_authorized_keys:
+  - <YOUR_SSH_PUBLIC_KEY>
+
+# SSH: key-only login
+ssh_pwauth: false
+disable_root: true
+
+runcmd:
+- [systemctl, enable, --now, ssh]
+- [systemctl, enable, --now, avahi-daemon]

@@ -1,0 +1,7 @@
+---
+# https://gethomepage.dev/configs/settings/
+title: horae
+theme: light
+color: stone
+headerStyle: clean
+hideVersion: true

@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#f6f4ef">
+<title>Network · Olympus</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='3' y='3' width='26' height='26' rx='8' fill='%231d1c1a'/><circle cx='16' cy='16' r='6.5' fill='none' stroke='%23f6f4ef' stroke-width='2'/><path d='M9.5 16h13M16 9.5c2.5 3 2.5 10 0 13M16 9.5c-2.5 3-2.5 10 0 13' stroke='%23f6f4ef' stroke-width='1.6' fill='none'/></svg>">
+<link rel="stylesheet" href="/suite.css">
+<style>
+  .desk { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: center; }
+  .desk .status { font-size: 13px; color: var(--muted); margin-right: auto; }
+  .desk .status.err { color: var(--bad); }
+  .tabs { display: flex; gap: 22px; margin: 16px 0 18px; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+  .tabs button { font: 500 14px var(--sans); color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent; padding: 8px 0 10px; cursor: pointer; white-space: nowrap; margin-bottom: -1px; }
+  .tabs button:hover { color: var(--text); }
+  .tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+  .tabs button kbd { margin-left: 6px; font-size: 10px; padding: 0 4px; }
+  .plaques { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .plaque { padding: 14px 16px; }
+  .plaque .l { font-size: 12.5px; color: var(--muted); }
+  .plaque .n { font: 600 26px/1.2 var(--sans); letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .plaque .n small { font: 500 14px var(--sans); color: var(--muted); }
+  h3.t { font: 600 15px var(--sans); margin: 26px 0 10px; display: flex; gap: 8px; align-items: baseline; }
+  h3.t small { font: 400 13px var(--sans); color: var(--muted); }
+  .chartcard { padding: 14px 14px 10px; }
+  .colbars { display: flex; align-items: flex-end; gap: 3px; height: 140px; }
+  .colbars .b { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; min-width: 3px; }
+  .colbars .q { background: #cfdde9; border-radius: 3px 3px 0 0; }
+  .colbars .x { background: var(--accent); opacity: .75; }
+  .colbars .b:hover .q { background: var(--aegean); }
+  .axis { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); margin-top: 6px; }
+  .legend { display: flex; gap: 16px; font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
+  .two { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: start; }
+  .tablecard { padding: 4px 8px; }
+  .site { font-weight: 500; word-break: break-all; }
+  .chipdev { display: inline-block; font: 500 11.5px var(--sans); padding: 1px 8px; border-radius: 99px; background: #f1ede5; color: var(--text-2); margin: 1px 3px 1px 0; white-space: nowrap; }
+  .day { font: 600 13px var(--sans); color: var(--muted); margin: 22px 0 6px; }
+  .when { font: 12.5px var(--mono); color: var(--muted); white-space: nowrap; width: 1%; }
+  .devrow .sub { font: 11.5px var(--mono); color: var(--faint); }
+  .toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="masthead"></div>
+  <div class="desk">
+    <span id="status" class="status">Loading…</span>
+    <select id="hours" aria-label="Time range">
+      <option value="24">Last 24 hours</option><option value="72">Last 3 days</option><option value="168">Last 7 days</option><option value="720">Last 30 days</option>
+    </select>
+    <select id="device" aria-label="Device"><option value="">All devices</option></select>
+    <label class="chk"><input type="checkbox" id="noise" checked> Hide background</label>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button data-tab="overview" class="on">Overview<kbd>1</kbd></button>
+    <button data-tab="sites">Sites<kbd>2</kbd></button>
+    <button data-tab="timeline">Timeline<kbd>3</kbd></button>
+    <button data-tab="blocked">Blocked<kbd>4</kbd></button>
+    <button data-tab="blocklist">Your blocks<kbd>5</kbd></button>
+  </nav>
+  <main id="view"></main>
+</div>
+
+<div class="drawer" id="drawer"><div class="sheet" role="dialog" aria-label="Site details"><div class="sheet-head"><h3 id="sheet-title"></h3><span id="sheet-actions"></span><button class="x" data-close aria-label="Close">×</button></div><div class="sheet-body" id="sheet"></div></div></div>
+
+<script src="/suite.js"></script>
+<script>
+const { esc, toast, tween } = Suite;
+const $ = (s) => document.querySelector(s);
+const N = (n) => (n ?? 0).toLocaleString();
+const fmtTime = (t) => new Date(t * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+const fmtDay = (t) => new Date(t * 1000).toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
+const fmtWhen = (t) => { const d = new Date(t * 1000); return d.toDateString() === new Date().toDateString() ? fmtTime(t) : d.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); };
+const ago = (t) => { const s = Date.now() / 1000 - t; if (s < 90) return "just now"; if (s < 3600) return Math.round(s / 60) + " min ago"; if (s < 86400) return Math.round(s / 3600) + " h ago"; return Math.round(s / 86400) + " d ago"; };
+const span = (a, b) => (b - a < 60 ? fmtTime(a) : `${fmtTime(a)}–${fmtTime(b)}`);
+const tw = (key, v) => `<span data-tw="${esc(key)}" data-v="${v}">${N(v)}</span>`;
+const TABS = ["overview", "sites", "timeline", "blocked", "blocklist"];
+const TAB_NAMES = { overview: "Overview", sites: "Sites", timeline: "Timeline", blocked: "Blocked lookups", blocklist: "Your blocks" };
+
+let tab = "overview";
+const prefs = (() => { try { return JSON.parse(localStorage.getItem("nw-prefs") || "{}"); } catch { return {}; } })();
+if (prefs.hours) $("#hours").value = prefs.hours;
+if (prefs.noise === false) $("#noise").checked = false;
+if (TABS.includes(prefs.tab)) tab = prefs.tab;
+function savePrefs() { try { localStorage.setItem("nw-prefs", JSON.stringify({ hours: $("#hours").value, noise: $("#noise").checked, tab, device: $("#device").value })); } catch {} }
+const qs = (extra = {}) => new URLSearchParams({ hours: $("#hours").value, device: $("#device").value, noise: $("#noise").checked ? "1" : "0", ...extra }).toString();
+async function api(path, opts) { const r = await fetch(path, opts); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || r.statusText); return j; }
+const post = (path, body) => api(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+
+async function block(domain, scope, btn) {
+  const what = scope === "exact" ? domain : `${domain} and all its subdomains`;
+  if (!confirm(`Block ${what} for every device?`)) return;
+  if (btn) btn.disabled = true;
+  try { await post("/api/block", { domain, scope }); toast(`Blocked ${domain}${scope === "exact" ? "" : " (whole site)"}`); lastView = ""; render(); }
+  catch (e) { toast("Couldn't block: " + e.message); if (btn) btn.disabled = false; }
+}
+async function unblock(kind, domain, btn) {
+  if (!confirm(`Unblock ${prettyRegex(domain)}?`)) return;
+  btn.disabled = true;
+  try { await post("/api/unblock", { kind, domain }); toast("Unblocked"); lastView = ""; render(); }
+  catch (e) { toast("Couldn't unblock: " + e.message); btn.disabled = false; }
+}
+const prettyRegex = (r) => { const m = /^\(\\\.\|\^\)(.+)\$$/.exec(r); return m ? m[1].replace(/\\\./g, ".") : r; };
+const pills = (devs) => Object.entries(devs).sort((a, b) => b[1] - a[1]).map(([n]) => `<span class="chipdev">${esc(n)}</span>`).join("");
+
+// ------------------------------------------------------------------ views
+const views = {
+  async overview() {
+    const s = await api("/api/summary?" + qs());
+    const max = Math.max(1, ...s.series.map((p) => p.queries));
+    const bars = s.series.map((p) => `<div class="b" title="${fmtWhen(p.t)}: ${N(p.queries)} lookups, ${N(p.blocked)} blocked">
+        <div class="q" style="height:${((p.queries - p.blocked) / max * 100).toFixed(1)}%"></div>${p.blocked ? `<div class="x" style="height:${(p.blocked / max * 100).toFixed(1)}%"></div>` : ""}</div>`).join("");
+    const pct = s.queries ? Math.round(100 * s.blocked / s.queries) : 0;
+    return `<div class="grid plaques">
+        <div class="card plaque"><div class="l">Lookups</div><div class="n">${tw("q", s.queries)}</div></div>
+        <div class="card plaque"><div class="l">Blocked</div><div class="n">${tw("b", s.blocked)} <small>${pct}%</small></div></div>
+        <div class="card plaque"><div class="l">Unique sites</div><div class="n">${tw("s", s.sites)}</div></div>
+        <div class="card plaque"><div class="l">Devices</div><div class="n">${tw("d", s.devices.length)}</div></div></div>
+      <h3 class="t">Activity <small>${s.bucket === 3600 ? "per hour" : "per day"}</small></h3>
+      <div class="card chartcard"><div class="colbars">${bars}</div>
+        <div class="axis"><span>${s.series[0] ? fmtWhen(s.series[0].t) : ""}</span><span>${s.series.at(-1) ? fmtWhen(s.series.at(-1).t) : ""}</span></div>
+        <div class="legend"><span><i style="background:#cfdde9"></i>Allowed</span><span><i style="background:var(--accent);opacity:.75"></i>Blocked</span></div></div>
+      <div class="two">
+        <div><h3 class="t">Devices</h3>
+          ${s.devices.length ? `<div class="card tablecard"><table class="ledger"><tr><th>Device</th><th class="r">Lookups</th><th class="r">Blocked</th><th class="r">Last seen</th></tr>
+          ${s.devices.map((d) => `<tr class="click devrow" data-device="${esc(d.name)}" title="Show ${esc(d.name)}'s timeline"><td><span class="site">${esc(d.name)}</span><div class="sub">${d.ips.map(esc).join(" · ")}</div></td>
+            <td class="r mono">${N(d.queries)}</td><td class="r mono">${N(d.blocked)}</td><td class="r muted">${ago(d.last)}</td></tr>`).join("")}</table></div>` : `<div class="empty">No devices in this range.</div>`}</div>
+        <div><h3 class="t">Top sites</h3>
+          ${s.top.length ? `<div class="card panel"><ul class="leaders">${s.top.map((t) => `<li data-site="${esc(t.base)}" style="cursor:pointer"><span class="name">${esc(t.base)}</span><span class="v">${N(t.n)}</span></li>`).join("")}</ul></div>` : `<div class="empty">Nothing yet.</div>`}</div>
+      </div>`;
+  },
+  async sites() {
+    const rows = await api("/api/sites?" + qs());
+    return `<div class="toolbar"><h3 class="t" style="margin:0">${N(rows.length)} sites</h3>
+      <input type="search" id="filter" placeholder="Filter sites…" style="flex:1;min-width:200px"></div>
+      <div class="card tablecard"><table class="ledger" id="sitetable"><tr><th>Site</th><th class="hide-sm">Devices</th><th class="r">Lookups</th><th class="r">Last seen</th><th></th></tr>
+      ${rows.map((r) => `<tr class="click" data-site="${esc(r.site)}"><td><span class="site">${esc(r.site)}</span>${r.blocked ? ` <span class="badge bad">${N(r.blocked)} blocked</span>` : ""}</td>
+        <td class="hide-sm">${pills(r.devices)}</td><td class="r mono">${N(r.queries)}</td><td class="r muted">${fmtWhen(r.last)}</td>
+        <td class="r"><button class="btn danger" data-block="${esc(r.site)}">Block</button></td></tr>`).join("")}</table>
+      ${rows.length ? "" : `<div class="empty">No sites in this range.</div>`}</div>`;
+  },
+  async timeline() {
+    const visits = await api("/api/timeline?" + qs());
+    if (!visits.length) return `<div class="empty">No activity in this range.</div>`;
+    let out = "", day = "";
+    for (const v of visits) {
+      const d = fmtDay(v.start);
+      if (d !== day) { if (day) out += "</table></div>"; day = d; out += `<div class="day">${esc(d)}</div><div class="card tablecard"><table class="ledger">`; }
+      out += `<tr class="click" data-site="${esc(v.site)}"><td class="when">${span(v.start, v.end)}</td>
+        <td><span class="site">${esc(v.site)}</span>${v.blocked ? ` <span class="badge bad">blocked</span>` : ""}</td>
+        <td>${$("#device").value ? "" : `<span class="chipdev">${esc(v.device)}</span>`}</td><td class="r mono muted">${N(v.queries)}</td></tr>`;
+    }
+    return out + "</table></div>" + (visits.length >= 4000 ? `<p class="muted">Showing the latest 4,000 visits.</p>` : "");
+  },
+  async blocked() {
+    const rows = await api("/api/blocked?" + qs());
+    const why = (s) => ({ GRAVITY: "Blocklist", GRAVITY_CNAME: "Blocklist", REGEX: "Your rule", REGEX_CNAME: "Your rule", DENYLIST: "Your rule", DENYLIST_CNAME: "Your rule" }[s] || s);
+    return rows.length ? `<div class="card tablecard"><table class="ledger"><tr><th>Domain</th><th>Device</th><th class="r">Attempts</th><th class="r">Last</th><th class="hide-sm">Reason</th></tr>
+      ${rows.map((r) => `<tr class="click" data-site="${esc(r.base)}"><td class="site">${esc(r.domain)}</td><td><span class="chipdev">${esc(r.device)}</span></td>
+        <td class="r mono">${N(r.n)}</td><td class="r muted">${fmtWhen(r.last)}</td><td class="hide-sm"><span class="badge plain">${esc(why(r.status))}</span></td></tr>`).join("")}</table></div>`
+      : `<div class="empty">Nothing was blocked in this range.</div>`;
+  },
+  async blocklist() {
+    const rows = await api("/api/blocklist");
+    return `${rows.length ? `<div class="card tablecard"><table class="ledger"><tr><th>Rule</th><th class="hide-sm">Added</th><th></th></tr>
+      ${rows.map((r) => `<tr><td><span class="site">${esc(r.kind === "regex" ? prettyRegex(r.domain) : r.domain)}</span>
+          <div class="muted" style="font-size:12.5px">${r.kind === "regex" ? "Whole site" : "Exact name"}${r.comment ? " · " + esc(r.comment) : ""}${r.enabled ? "" : " · disabled"}</div></td>
+        <td class="hide-sm muted">${r.added ? fmtWhen(r.added) : ""}</td><td class="r"><button class="btn" data-unblock="${esc(r.domain)}" data-kind="${r.kind}">Unblock</button></td></tr>`).join("")}</table></div>`
+      : `<div class="empty">Nothing blocked yet. Use Block on any site, or search with Ctrl K.</div>`}
+      <p class="muted" style="font-size:13px">Sites you've blocked manually. Ads and trackers blocked by Pi-hole's lists aren't shown here.</p>`;
+  },
+};
+
+// ------------------------------------------------------------------ site details
+let openSiteName = null, lastSheet = "";
+async function openSite(site) {
+  openSiteName = site; lastSheet = "";
+  $("#sheet-title").textContent = site;
+  $("#sheet-actions").innerHTML = `<button class="btn danger" data-block="${esc(site)}">Block whole site</button>`;
+  $("#sheet").innerHTML = `<div class="empty">Loading…</div>`;
+  $("#drawer").classList.add("open");
+  await loadSite();
+}
+function closeSite() { openSiteName = null; $("#drawer").classList.remove("open"); }
+async function loadSite() {
+  const site = openSiteName;
+  if (!site) return;
+  try {
+    const d = await api("/api/site?" + qs({ site }));
+    if (site !== openSiteName) return;
+    const html = `<h3 class="t" style="margin-top:0">Visits</h3>
+      ${d.visits.length ? `<table class="ledger"><tr><th>When</th><th>Device</th><th class="r">Lookups</th></tr>
+      ${d.visits.map((v) => `<tr><td class="when">${new Date(v.start * 1000).toLocaleDateString([], { month: "short", day: "numeric" })} · ${span(v.start, v.end)}</td>
+        <td><span class="chipdev">${esc(v.device)}</span>${v.blocked ? ` <span class="badge bad">blocked</span>` : ""}</td><td class="r mono">${N(v.queries)}</td></tr>`).join("")}</table>`
+      : `<div class="empty">No visits in this range.</div>`}
+      <h3 class="t">Addresses</h3>
+      <table class="ledger">${d.subdomains.map((s) => `<tr><td class="site">${esc(s.domain)}${s.b ? ` <span class="badge bad">blocked</span>` : ""}</td>
+        <td class="r mono">${N(s.n)}</td><td class="r"><button class="btn danger" data-block="${esc(s.domain)}" data-scope="exact">Block</button></td></tr>`).join("")}</table>`;
+    if (html !== lastSheet) { const b = $("#sheet"), top = b.parentElement.scrollTop; b.innerHTML = html; b.parentElement.scrollTop = top; lastSheet = html; }
+  } catch (e) { if (!lastSheet) $("#sheet").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+// ------------------------------------------------------------------ rendering + live polling
+let lastView = "", renderSeq = 0;
+async function render(force = false) {
+  document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
+  const seq = ++renderSeq;
+  let html;
+  try { html = await views[tab](); }
+  catch (e) { if (!force && lastView) return; html = `<div class="empty">Couldn't load: ${esc(e.message)}</div>`; }
+  if (seq !== renderSeq || (!force && html === lastView)) return;
+  const f = $("#filter"), keep = f && { value: f.value, focused: document.activeElement === f, a: f.selectionStart, b: f.selectionEnd };
+  const y = window.scrollY;
+  $("#view").innerHTML = html; lastView = html;
+  const nf = $("#filter");
+  if (keep && nf) { nf.value = keep.value; applyFilter(); if (keep.focused) { nf.focus(); nf.setSelectionRange(keep.a, keep.b); } }
+  if (!force) window.scrollTo(0, y);
+  tween($("#view"));
+}
+function applyFilter() {
+  const q = $("#filter").value.trim().toLowerCase();
+  document.querySelectorAll("#sitetable tr[data-site]").forEach((tr) => { tr.style.display = !q || tr.dataset.site.includes(q) ? "" : "none"; });
+}
+async function refreshStatus() {
+  const el = $("#status");
+  try {
+    const h = await api("/api/health");
+    if (!h.has_secret) { el.textContent = "Waiting for the Pi-hole app password"; el.className = "status err"; Suite.setLive(false, "No password"); }
+    else if (h.last_error) { el.textContent = "Sync problem: " + h.last_error; el.className = "status err"; Suite.setLive(false, "Sync problem"); }
+    else if (h.last_sync) {
+      const s = Math.max(0, Math.round(Date.now() / 1000 - h.last_sync));
+      el.textContent = s < 60 ? `Updated ${s}s ago` : `Updated ${ago(h.last_sync)}`; el.className = "status"; Suite.setLive(s < 60);
+    } else { el.textContent = "First sync in progress…"; el.className = "status"; }
+  } catch { el.textContent = "Can't reach the server"; el.className = "status err"; Suite.setLive(false); }
+}
+let deviceList = [];
+async function loadDevices() {
+  try {
+    const sel = $("#device"), cur = sel.value || prefs.device || "";
+    const devs = await api("/api/devices");
+    sel.innerHTML = `<option value="">All devices</option>` + devs.map((d) => `<option>${esc(d)}</option>`).join("");
+    if ([...sel.options].some((o) => o.value === cur)) sel.value = cur;
+    deviceList = devs;
+  } catch {}
+}
+function setTab(t) { tab = t; savePrefs(); Suite.transition(() => render(true)); }
+
+document.addEventListener("click", (e) => {
+  const t = e.target;
+  if (t.closest("[data-close]") || t.id === "drawer") return closeSite();
+  const b = t.closest("[data-block]"); if (b) { e.stopPropagation(); return block(b.dataset.block, b.dataset.scope || "site", b); }
+  const u = t.closest("[data-unblock]"); if (u) return unblock(u.dataset.kind, u.dataset.unblock, u);
+  const tb = t.closest("#tabs button"); if (tb) return setTab(tb.dataset.tab);
+  const dev = t.closest("[data-device]"); if (dev) { $("#device").value = dev.dataset.device; return setTab("timeline"); }
+  const row = t.closest("[data-site]"); if (row) openSite(row.dataset.site);
+});
+document.addEventListener("input", (e) => { if (e.target.id === "filter") applyFilter(); });
+document.addEventListener("keydown", (e) => {
+  const typing = /input|textarea|select/i.test(document.activeElement?.tagName || "");
+  if (e.key === "Escape") closeSite();
+  if (!typing && !e.ctrlKey && !e.metaKey && /^[1-5]$/.test(e.key) && !document.querySelector("#oracle.open")) setTab(TABS[+e.key - 1]);
+});
+["#hours", "#device", "#noise"].forEach((s) => $(s).addEventListener("change", () => { savePrefs(); render(true); loadSite(); }));
+
+let polling = false, lastPoll = 0;
+async function poll() {
+  const every = Number($("#hours").value) > 72 ? 30000 : 5000;
+  if (polling || document.hidden || Date.now() - lastPoll < every - 250) return;
+  polling = true; lastPoll = Date.now();
+  try { await Promise.all([refreshStatus(), render(), loadSite()]); } finally { polling = false; }
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { lastPoll = 0; poll(); } });
+
+// ------------------------------------------------------------------ search: tabs, devices, sites, blocking
+let siteCache = { t: 0, rows: [] };
+Suite.Oracle.register(async (q) => {
+  const out = [
+    ...TABS.map((t, i) => ({ group: "Network", icon: String(i + 1), title: TAB_NAMES[t], sub: "Open tab", hint: String(i + 1), run: () => setTab(t) })),
+    ...[["24", "Last 24 hours"], ["72", "Last 3 days"], ["168", "Last 7 days"], ["720", "Last 30 days"]].map(([h, l]) => ({ group: "Time range", icon: "◷", title: l, keywords: "range period", run: () => { $("#hours").value = h; savePrefs(); render(true); } })),
+    ...deviceList.map((d) => ({ group: "Devices", icon: d[0].toUpperCase(), title: `${d} timeline`, sub: "Show only this device", run: () => { $("#device").value = d; setTab("timeline"); } })),
+    { group: "Devices", icon: "∗", title: "All devices", run: () => { $("#device").value = ""; savePrefs(); render(true); } },
+  ];
+  if (q.length >= 2) {
+    if (Date.now() - siteCache.t > 15000) siteCache = { t: Date.now(), rows: await api("/api/sites?" + qs()) };
+    for (const r of siteCache.rows) {
+      out.push({ group: "Sites", icon: r.site[0].toUpperCase(), title: r.site, sub: `${N(r.queries)} lookups · ${Object.keys(r.devices).join(", ")}`, run: () => openSite(r.site) });
+      out.push({ group: "Block", icon: "⊘", title: `Block ${r.site}`, sub: "Whole site, all devices · asks first", keywords: "block ban deny", run: () => block(r.site, "site") });
+    }
+    if (/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(q) && !siteCache.rows.some((r) => r.site === q))
+      out.push({ group: "Block", icon: "⊘", title: `Block ${q}`, sub: "Not seen yet · asks first", keywords: "block", run: () => block(q, "site") });
+  }
+  return out;
+});
+
+Suite.mount({ app: "netwatch" });
+(async () => {
+  await loadDevices();
+  await Promise.all([refreshStatus(), render(true)]);
+  lastPoll = Date.now();
+  setInterval(poll, 1000);
+  setInterval(loadDevices, 300000);
+})();
+</script>
+</body>
+</html>

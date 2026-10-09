@@ -1,0 +1,21 @@
+# Olympus agent on horae. Reports stats/containers to the Olympus hub on helios.
+#   Start/update:  cd ~/olympus-agent && docker compose up -d
+services:
+  olympus-agent:
+    image: python:3.14-slim
+    container_name: olympus-agent
+    restart: unless-stopped
+    init: true                         # tini as PID 1: stops/restarts take ~1 s, not 10
+    network_mode: host                 # sees real client IPs; answers only ALLOW
+    command: ["python", "-u", "-B", "/agent/agent.py"]
+    environment:
+      HOST_NAME: horae
+      BIND: 100.123.23.100             # pihub's Tailscale IP
+      ALLOW: 100.88.170.59             # only the Olympus hub on helios may ask
+      DISKS: /
+    volumes:
+      - ./agent.py:/agent/agent.py:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro,rslave
+      - /var/run/docker.sock:/var/run/docker.sock

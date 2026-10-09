@@ -1,0 +1,17 @@
+# Secrets: never commit
+pihole.secret
+*.secret
+.env
+*.env
+.pihole-password
+hub.env
+
+# Live data and generated files
+data/
+*.db
+*.db-*
+build/
+__pycache__/
+*.pyc
+backups/
+*.tar.gz

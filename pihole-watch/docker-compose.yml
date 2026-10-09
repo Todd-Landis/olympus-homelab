@@ -1,0 +1,24 @@
+# Network Watch: browsing timeline + blocking, fed by Pi-hole on horae.
+#   Start/update:  cd ~/pihole-watch && docker compose up -d
+#   Page:          http://helios:8095  (Tailscale only)
+services:
+  pihole-watch:
+    image: python:3.14-slim
+    container_name: pihole-watch
+    restart: unless-stopped
+    init: true                         # tini as PID 1: stops/restarts take ~1 s, not 10
+    user: "1000:1000"
+    working_dir: /app
+    command: ["python", "-u", "app.py"]
+    environment:
+      PIHOLE_URL: http://100.123.23.100:8080   # horae over Tailscale
+      RETENTION_DAYS: "30"
+      SYNC_SECONDS: "5"            # pull from Pi-hole every 5 s
+      TZ: America/New_York
+    ports:
+      - "100.88.170.59:8095:8095"   # helios' Tailscale IP only, not the LAN
+    volumes:
+      - ./app:/app:ro
+      - ./data:/data                 # watch.db (+ optional names.json)
+      - ./pihole.secret:/run/secrets/pihole:ro
+      - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock

@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#f6f4ef">
+<title>Olympus</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='3' y='3' width='26' height='26' rx='8' fill='%231d1c1a'/><path d='M9 21h14M11 21v-7M16 21v-7M21 21v-7M9 13l7-4 7 4z' stroke='%23f6f4ef' stroke-width='2' fill='none' stroke-linejoin='round' stroke-linecap='round'/></svg>">
+<link rel="stylesheet" href="/suite.css">
+<style>
+  .banner { display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--text-2); }
+  .banner.trouble { padding: 12px 16px; border-color: #efd2cf; background: #fdf6f5; display: block; }
+  .banner.trouble b { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--bad); }
+  .banner ul { margin: 6px 0 0; padding-left: 24px; }
+
+  .hosts { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
+  .host { padding: 16px 18px 14px; border-top: 3px solid var(--hc, var(--border)); }
+  .host-head { display: flex; align-items: flex-start; gap: 10px; }
+  .host-head h3 { margin: 0; font: 600 16px var(--sans); letter-spacing: -.01em; }
+  .host-head .role { font-size: 12.5px; color: var(--muted); }
+  .host-head .status-pill { margin-left: auto; }
+  .spark { width: 100%; height: 40px; display: block; margin: 12px 0 8px; }
+  .meters { display: grid; gap: 8px; }
+  .meter { display: grid; grid-template-columns: 62px 1fr 44px; gap: 10px; align-items: center; font-size: 12.5px; }
+  .meter .k { color: var(--muted); } .meter .v { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+  .host-foot { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #f1ede5; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .host-foot b { color: var(--text-2); font-weight: 500; }
+  .host.off { box-shadow: none; background: var(--surface-2); }
+  .host.off .note { font-size: 13px; color: var(--muted); margin-top: 10px; }
+
+  .services { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+  .svc { display: flex; align-items: center; gap: 12px; padding: 12px 14px; text-decoration: none; }
+  .svc .ic { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; font: 600 12px var(--sans); flex: none; color: var(--text-2); background: var(--surface-2); border: 1px solid var(--border); }
+  .svc .name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .svc .meta { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .svc .st { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font: 500 11.5px var(--mono); color: var(--muted); flex: none; }
+  .svc .st .arrow { font: 400 14px var(--sans); color: var(--faint); }
+  a.svc:hover .arrow { color: var(--accent); }
+
+  .widgets { grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); align-items: start; }
+  .widget { padding: 16px 18px; }
+  .widget h4 { display: flex; align-items: baseline; gap: 8px; }
+  .widget h4 a { margin-left: auto; font: 500 12.5px var(--sans); color: var(--accent); text-decoration: none; }
+  .widget h4 a:hover { text-decoration: underline; }
+  .bars { display: flex; align-items: flex-end; gap: 2px; height: 48px; margin: 14px 0 12px; }
+  .bars span { flex: 1; background: #d9e5ee; border-radius: 2px 2px 0 0; min-height: 2px; }
+  .bars span:last-child { background: var(--aegean); }
+  .model { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f1ede5; font-size: 13.5px; }
+  .model:last-child { border-bottom: 0; }
+  .model .what { margin-left: auto; color: var(--muted); font-size: 12.5px; }
+
+  .back { font: 500 13px var(--sans); background: none; border: 0; cursor: pointer; padding: 0; color: var(--muted); }
+  .back:hover { color: var(--text); }
+  .hero { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 10px 0 4px; padding-left: 12px; border-left: 3px solid var(--hc, var(--border)); }
+  .hero h1 { margin: 0; font: 600 26px var(--sans); letter-spacing: -.02em; }
+  .hero .role { color: var(--muted); }
+  .stats { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-top: 18px; }
+  .stat { padding: 14px 16px; }
+  .stat .l { font-size: 12.5px; color: var(--muted); }
+  .stat .n { font: 600 24px/1.2 var(--sans); letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .stat .s { font-size: 12.5px; color: var(--muted); }
+  .charts { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); margin-top: 14px; }
+  .chart { padding: 14px 16px; }
+  .chart .head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; font-size: 13px; color: var(--muted); }
+  .chart .head b { color: var(--text); font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; }
+  .two { grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); margin-top: 14px; align-items: start; }
+  .disk { margin-bottom: 12px; } .disk:last-child { margin-bottom: 0; }
+  .disk .top { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; }
+  .disk .top span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .temps { display: flex; flex-wrap: wrap; gap: 8px; }
+  .temp { padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 12.5px; color: var(--muted); }
+  .temp b { color: var(--text); font-weight: 600; margin-left: 4px; font-variant-numeric: tabular-nums; }
+  .cname { font-weight: 500; }
+  .img { font: 11.5px var(--mono); color: var(--faint); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .btns { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+  pre.logs { margin: 0; font: 12.5px/1.6 var(--mono); white-space: pre-wrap; word-break: break-word; color: var(--text); }
+  pre.logs.nowrap { white-space: pre; }
+  pre.logs .ts { color: var(--faint); } pre.logs .err { color: var(--bad); } pre.logs .wrn { color: var(--warn); }
+  pre.logs mark { background: #f8e3b5; color: inherit; border-radius: 3px; }
+  ::view-transition-group(*) { animation-duration: .3s; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="masthead"></div>
+  <main id="view" aria-live="polite"></main>
+</div>
+
+<div class="drawer" id="drawer">
+  <div class="sheet" role="dialog" aria-label="Container logs">
+    <div class="sheet-head">
+      <h3 id="log-title">Logs</h3>
+      <input type="search" id="log-filter" placeholder="Filter lines…">
+      <label class="chk"><input type="checkbox" id="log-follow" checked> Follow</label>
+      <label class="chk"><input type="checkbox" id="log-wrap" checked> Wrap</label>
+      <button class="x" data-close aria-label="Close">×</button>
+    </div>
+    <div class="sheet-body" id="log-body"><pre class="logs" id="logs">Loading…</pre></div>
+  </div>
+</div>
+
+<script src="/suite.js"></script>
+<script>
+const { esc, toast, tween } = Suite;
+const $ = (s) => document.querySelector(s);
+const N = (n) => (n ?? 0).toLocaleString();
+const pct = (a, b) => (b ? (100 * a) / b : 0);
+function bytes(n, d = 1) { if (n == null) return "–"; const u = ["B", "KB", "MB", "GB", "TB"]; let i = 0; while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; } return `${n.toFixed(i ? d : 0)} ${u[i]}`; }
+const rate = (n) => (n == null ? "–" : bytes(n) + "/s");
+function dur(s) { if (s == null) return "–"; const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60); return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`; }
+function ago(t) { if (!t) return "never"; const s = Date.now() / 1000 - t; if (s < 60) return "just now"; if (s < 3600) return Math.round(s / 60) + " min ago"; if (s < 86400) return Math.round(s / 3600) + " h ago"; return Math.round(s / 86400) + " d ago"; }
+const C = (c) => `${Math.round(c)}°C`;
+const lvl = (p) => (p >= 90 ? "b" : p >= 75 ? "w" : "");
+const HOSTC = { helios: "#c98a12", horae: "#3f8a5a", hephaestus: "#c4552d" };
+const tw = (key, v, fmt = "int") => `<span data-tw="${esc(key)}" data-v="${v}" data-fmt="${fmt}">${fmt === "pct" ? Math.round(v) + "%" : N(Math.round(v))}</span>`;
+let awayHosts = new Set();
+
+function spark(values, color) {
+  const v = values.filter((x) => x != null), w = 300, h = 40;
+  if (v.length < 2) return `<svg class="spark" viewBox="0 0 ${w} ${h}"></svg>`;
+  const m = Math.max(25, ...v), step = w / (v.length - 1);
+  const pts = v.map((x, i) => `${(i * step).toFixed(1)},${(h - 2 - (x / m) * (h - 6)).toFixed(1)}`).join(" ");
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+    <polygon points="0,${h} ${pts} ${w},${h}" fill="${color}" opacity=".10"/>
+    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>`;
+}
+const meter = (label, p, text) => `<div class="meter"><span class="k">${label}</span><div class="bar"><i class="${lvl(p)}" style="width:${Math.min(100, Math.max(0, p)).toFixed(1)}%"></i></div><span class="v">${text}</span></div>`;
+
+// ------------------------------------------------------------------ overview
+function hostCard(h) {
+  const s = h.stats, color = HOSTC[h.name] || "var(--aegean)";
+  const st = h.online ? `<span class="status-pill"><span class="dot ok"></span>Up ${dur(s?.uptime)}</span>`
+    : `<span class="status-pill"><span class="dot ${h.sometimes_off ? "off" : "bad"}"></span>${h.has_agent ? "Offline" : "No agent"}</span>`;
+  const head = `<div class="host-head"><div><h3 style="view-transition-name: host-${h.name}">${esc(h.label)}</h3><div class="role">${esc(h.role || "")}</div></div>${st}</div>`;
+  if (!h.online || !s) {
+    const note = h.sometimes_off ? "Usually off or booted into Windows. Stats appear when it's running Ubuntu."
+      : `Agent unreachable${h.error ? `: ${esc(h.error)}` : ""}. Last seen ${ago(h.last_seen)}.`;
+    return `<article class="card lift host off" data-host="${esc(h.name)}" style="--hc:${color}">${head}<div class="note">${note}</div></article>`;
+  }
+  const mem = s.memory, disk = s.disks[0], cpuT = s.temps.find((t) => t.name === "CPU");
+  const foot = [cpuT ? `CPU <b>${C(cpuT.c)}</b>` : "", s.gpu?.temp != null ? `GPU <b>${C(s.gpu.temp)}</b>` : "",
+    s.battery ? `${s.battery.ac ? "On power" : "On battery"} <b>${s.battery.percent ?? "?"}%</b>` : "",
+    `↓ <b>${rate(s.net.rx)}</b> ↑ <b>${rate(s.net.tx)}</b>`, `<b>${h.containers_running}/${h.containers_total}</b> containers`].filter(Boolean);
+  return `<article class="card lift host" data-host="${esc(h.name)}" style="--hc:${color}" tabindex="0" aria-label="${esc(h.label)} details">${head}
+    ${spark(h.spark, color)}
+    <div class="meters">
+      ${meter("CPU", s.cpu ?? 0, tw(h.name + "cpu", s.cpu ?? 0, "pct"))}
+      ${meter("Memory", pct(mem.used, mem.total), tw(h.name + "mem", pct(mem.used, mem.total), "pct"))}
+      ${disk ? meter("Disk", pct(disk.used, disk.total), tw(h.name + "disk", pct(disk.used, disk.total), "pct")) : ""}
+      ${s.gpu ? meter("GPU", s.gpu.util ?? 0, tw(h.name + "gpu", s.gpu.util ?? 0, "pct")) : ""}
+    </div>
+    <div class="host-foot">${foot.map((f) => `<span>${f}</span>`).join("")}</div></article>`;
+}
+function svcTile(s) {
+  const away = !s.up && awayHosts.has(s.host);
+  const st = s.up == null || away ? "off" : s.up ? "ok" : "bad";
+  const label = s.up == null ? "checking" : s.up ? `${s.ms ?? ""} ms` : away ? "offline" : "down";
+  const ini = s.name.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+  const inner = `<span class="ic">${esc(ini)}</span><div style="min-width:0"><div class="name">${esc(s.name)}</div><div class="meta">${esc(s.host)}${s.desc ? " · " + esc(s.desc) : ""}</div></div>
+    <div class="st"><span><span class="dot ${st}"></span> ${label}</span>${s.url ? `<span class="arrow">↗</span>` : ""}</div>`;
+  return s.url ? `<a class="card lift svc" href="${esc(s.url)}" target="_blank" rel="noopener" title="Open ${esc(s.name)}">${inner}</a>` : `<div class="card svc" title="No web page">${inner}</div>`;
+}
+function banner(alerts) {
+  if (!alerts.length) return `<div class="banner"><span class="dot ok live"></span>All systems normal</div>`;
+  return `<div class="card banner trouble"><b><span class="dot bad"></span>${alerts.length === 1 ? "1 issue" : alerts.length + " issues"}</b><ul>${alerts.map((a) => `<li>${esc(a.text)}</li>`).join("")}</ul></div>`;
+}
+function networkWidget(n) {
+  if (!n) return "";
+  if (n.error) return `<div class="card widget"><h4>Network <a href="${esc(n.url)}">Open ↗</a></h4><div class="empty">Unavailable: ${esc(n.error)}</div></div>`;
+  const max = Math.max(1, ...n.series);
+  return `<div class="card widget"><h4>Network <small>last 24 hours</small><a href="${esc(n.url)}">Open ↗</a></h4>
+    <div class="kpis"><div class="kpi"><div class="n">${tw("nq", n.queries)}</div><div class="l">lookups</div></div>
+      <div class="kpi"><div class="n">${tw("nb", n.blocked)}</div><div class="l">blocked (${pct(n.blocked, n.queries).toFixed(0)}%)</div></div>
+      <div class="kpi"><div class="n">${tw("ns", n.sites)}</div><div class="l">sites</div></div></div>
+    <div class="bars" aria-hidden="true">${n.series.map((v) => `<span style="height:${(100 * v / max).toFixed(1)}%"></span>`).join("")}</div>
+    <ul class="leaders">${n.top.map((t) => `<li><span class="name">${esc(t.base)}</span><span class="v">${N(t.n)}</span></li>`).join("")}</ul></div>`;
+}
+function aiWidget(list) {
+  if (!list?.length) return "";
+  return `<div class="card widget"><h4>AI models</h4>
+    ${list.map((o) => `<div class="model"><span class="dot ${o.online ? "ok" : "off"}"></span><b style="font-weight:500">${esc(o.host)}</b>
+      <span class="what">${o.online ? `${o.installed} installed · ${o.loaded.length ? "loaded: " + o.loaded.map((m) => `${esc(m.name)} (${bytes(m.vram)})`).join(", ") : "none loaded"}` : "offline"}</span></div>`).join("")}</div>`;
+}
+function overview(d) {
+  return `${banner(d.alerts)}
+    <div class="sec"><h2>Machines</h2></div><div class="grid hosts">${d.hosts.map(hostCard).join("")}</div>
+    <div class="sec"><h2>Services</h2><small>${d.services.filter((s) => s.up).length} of ${d.services.length} up</small></div><div class="grid services">${d.services.map(svcTile).join("")}</div>
+    <div class="sec"><h2>Activity</h2></div><div class="grid widgets">${networkWidget(d.widgets.network)}${aiWidget(d.widgets.ollama)}</div>`;
+}
+
+// ------------------------------------------------------------------ host detail
+function lineChart(hist, key, { max = 100, color, key2, color2 }) {
+  const w = 600, h = 120, vals = hist.map((p) => p[key]), vals2 = key2 ? hist.map((p) => p[key2]) : [];
+  const all = [...vals, ...vals2].filter((x) => x != null);
+  if (all.length < 2) return `<svg viewBox="0 0 ${w} ${h}" style="height:${h}px"><text x="0" y="64" font-size="13" fill="#a9a399">Collecting data…</text></svg>`;
+  const m = Math.max(max ?? 0, ...all) || 1, step = w / Math.max(1, vals.length - 1);
+  const pts = (vs) => vs.map((x, i) => `${(i * step).toFixed(1)},${(h - 2 - ((x ?? 0) / m) * (h - 8)).toFixed(1)}`).join(" ");
+  const grid = [0.25, 0.5, 0.75].map((f) => `<line x1="0" x2="${w}" y1="${(h * f).toFixed(0)}" y2="${(h * f).toFixed(0)}" stroke="#f1ede5" vector-effect="non-scaling-stroke"/>`).join("");
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="height:${h}px">${grid}
+    <polygon points="0,${h} ${pts(vals)} ${w},${h}" fill="${color}" opacity=".10"/>
+    <polyline points="${pts(vals)}" fill="none" stroke="${color}" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+    ${key2 ? `<polyline points="${pts(vals2)}" fill="none" stroke="${color2}" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-dasharray="4 3"/>` : ""}</svg>`;
+}
+function containerRows(list) {
+  if (!list.length) return `<tr><td colspan="6"><div class="empty">No containers.</div></td></tr>`;
+  let out = "", proj;
+  for (const c of list) {
+    if (c.project !== proj) { proj = c.project; out += `<tr class="group"><td colspan="6">${esc(proj || "standalone")}</td></tr>`; }
+    const run = c.state === "running";
+    const badge = c.health === "unhealthy" ? `<span class="badge bad">unhealthy</span>` : c.health === "starting" ? `<span class="badge warn">starting</span>`
+      : run ? `<span class="badge ok">${c.health === "healthy" ? "healthy" : "running"}</span>` : `<span class="badge ${c.status.startsWith("Exited (0)") ? "plain" : "bad"}">${esc(c.state)}</span>`;
+    out += `<tr><td><div class="cname">${esc(c.name)}</div><div class="img">${esc(c.image)}</div></td>
+      <td>${badge}<div class="muted" style="font-size:12px;margin-top:2px">${esc(c.status)}</div></td>
+      <td class="r mono">${c.cpu != null ? c.cpu.toFixed(1) + "%" : "–"}</td><td class="r mono">${c.mem ? bytes(c.mem.used) : "–"}</td>
+      <td class="hide-sm mono" style="font-size:11.5px;color:var(--muted)">${c.ports.map(esc).join("<br>") || "–"}</td>
+      <td><div class="btns"><button class="btn" data-logs="${c.id}" data-name="${esc(c.name)}">Logs</button>
+        ${run ? `<button class="btn" data-act="restart" data-id="${c.id}" data-name="${esc(c.name)}">Restart</button><button class="btn danger" data-act="stop" data-id="${c.id}" data-name="${esc(c.name)}">Stop</button>`
+              : `<button class="btn go" data-act="start" data-id="${c.id}" data-name="${esc(c.name)}">Start</button>`}</div></td></tr>`;
+  }
+  return out;
+}
+function hostView(h) {
+  const s = h.stats, hist = h.history || [], color = HOSTC[h.name] || "var(--aegean)";
+  const st = h.online ? `<span class="status-pill"><span class="dot ok live"></span>Up ${dur(s?.uptime)}</span>` : `<span class="status-pill"><span class="dot ${h.sometimes_off ? "off" : "bad"}"></span>Offline · last seen ${ago(h.last_seen)}</span>`;
+  const head = `<button class="back" data-nav="">← All machines</button>
+    <div class="hero" style="--hc:${color}"><h1 style="view-transition-name: host-${h.name}">${esc(h.label)}</h1><span class="role">${esc(h.role || "")}</span>${st}</div>
+    ${h.alerts.length ? `<div style="margin-top:16px">${banner(h.alerts)}</div>` : ""}`;
+  const svcs = h.services?.length ? `<div class="sec"><h2>Services</h2></div><div class="grid services">${h.services.map(svcTile).join("")}</div>` : "";
+  if (!h.online || !s) {
+    return head + `<div class="card panel" style="margin-top:18px;color:var(--muted)">${h.sometimes_off
+      ? "This machine is off or in Windows. Its stats, containers and logs appear here once it's running Ubuntu with the Olympus agent."
+      : `Can't reach the agent${h.error ? `: ${esc(h.error)}` : ""}.`}</div>` + svcs;
+  }
+  const mem = s.memory, last = hist[hist.length - 1] || {};
+  const stats = [
+    `<div class="card stat"><div class="l">CPU</div><div class="n">${tw("d-cpu", s.cpu ?? 0, "pct")}</div><div class="s">${s.cores} cores · load ${s.load.map((x) => x.toFixed(2)).join(" ")}</div></div>`,
+    `<div class="card stat"><div class="l">Memory</div><div class="n">${tw("d-mem", pct(mem.used, mem.total), "pct")}</div><div class="s">${bytes(mem.used)} of ${bytes(mem.total)}${mem.swap_total ? ` · swap ${bytes(mem.swap_used)}` : ""}</div></div>`,
+    `<div class="card stat"><div class="l">Network</div><div class="n" style="font-size:20px">↓ ${rate(s.net.rx)}</div><div class="s">↑ ${rate(s.net.tx)}</div></div>`,
+    s.gpu ? `<div class="card stat"><div class="l">GPU · ${esc(s.gpu.name.replace("NVIDIA GeForce ", ""))}</div><div class="n">${tw("d-gpu", s.gpu.util ?? 0, "pct")}</div><div class="s">${N(s.gpu.mem_used)} / ${N(s.gpu.mem_total)} MiB · ${C(s.gpu.temp ?? 0)}${s.gpu.power != null ? ` · ${Math.round(s.gpu.power)} W` : ""}</div></div>` : "",
+    s.battery ? `<div class="card stat"><div class="l">Power</div><div class="n">${s.battery.percent ?? "?"}%</div><div class="s">${s.battery.ac ? "Plugged in" : "On battery"} · ${esc(s.battery.status || "")}</div></div>` : "",
+  ].join("");
+  const charts = `<div class="grid charts">
+    <div class="card chart"><div class="head"><span>CPU · last 15 min</span><b>${(last.cpu ?? 0).toFixed(0)}%</b></div><div class="chart-box">${lineChart(hist, "cpu", { color })}</div></div>
+    <div class="card chart"><div class="head"><span>Memory</span><b>${(last.mem ?? 0).toFixed(0)}%</b></div><div class="chart-box">${lineChart(hist, "mem", { color: "#2f6f9f" })}</div></div>
+    <div class="card chart"><div class="head"><span>Network · in (solid) / out (dashed)</span><b>${rate(last.rx)}</b></div><div class="chart-box">${lineChart(hist, "rx", { max: null, color: "#3f8a5a", key2: "tx", color2: "#c4552d" })}</div></div>
+    ${s.gpu ? `<div class="card chart"><div class="head"><span>GPU</span><b>${Math.round(last.gpu ?? 0)}%</b></div><div class="chart-box">${lineChart(hist, "gpu", { color: "#c4552d" })}</div></div>` : ""}</div>`;
+  const disks = s.disks.map((d) => { const p = pct(d.used, d.total); return `<div class="disk"><div class="top"><span class="mono">${esc(d.mount)}</span><span>${bytes(d.used, 0)} of ${bytes(d.total, 0)} · ${p.toFixed(0)}%</span></div><div class="bar"><i class="${lvl(p)}" style="width:${p.toFixed(1)}%;--hc:${color}"></i></div></div>`; }).join("");
+  const temps = [...s.temps, ...(s.gpu?.temp != null ? [{ name: "GPU", c: s.gpu.temp }] : [])].map((t) => `<span class="temp">${esc(t.name)}<b>${C(t.c)}</b></span>`).join("");
+  const units = s.units.length ? `<h4 style="margin-top:16px">System services</h4><table class="ledger">${s.units.map((u) => `<tr><td><span class="dot ${u.active ? "ok" : "bad"}"></span>&nbsp; ${esc(u.name)}</td><td class="r mono">${u.cpu != null ? u.cpu.toFixed(1) + "%" : ""}</td><td class="r mono">${u.mem != null ? bytes(u.mem) : ""}</td></tr>`).join("")}</table>` : "";
+  return head + `<div class="grid stats">${stats}</div>${charts}
+    <div class="grid two"><div class="card panel"><h4>Storage</h4>${disks}</div><div class="card panel"><h4>Temperatures</h4><div class="temps">${temps || `<span class="muted">No sensors</span>`}</div>${units}</div></div>
+    ${svcs}
+    <div class="sec"><h2>Containers</h2><small>${h.containers_running} of ${h.containers_total} running</small></div>
+    <div class="card panel" style="overflow-x:auto;padding-top:6px"><table class="ledger"><tr><th>Container</th><th>State</th><th class="r">CPU</th><th class="r">Memory</th><th class="hide-sm">Ports</th><th></th></tr>${containerRows(h.containers)}</table></div>`;
+}
+
+// ------------------------------------------------------------------ routing + live polling
+let route = location.hash.replace(/^#\/?/, ""), lastHtml = "", busy = false, lastOk = 0, lastState = null;
+const setRoute = (r) => { location.hash = r ? "#/" + r : ""; };
+window.addEventListener("hashchange", () => {
+  route = location.hash.replace(/^#\/?/, "");
+  Suite.transition(async () => { lastHtml = ""; await refresh(true); window.scrollTo(0, 0); });
+});
+async function api(path, opts) { const r = await fetch(path, opts); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || r.statusText); return j; }
+async function refresh(force = false) {
+  if ((busy && !force) || (document.hidden && !force)) return;
+  busy = true;
+  try {
+    const host = route.startsWith("host/") ? route.slice(5) : null;
+    let html;
+    if (host) { const h = await api("/api/host/" + encodeURIComponent(host)); if (h.sometimes_off && !h.online) awayHosts.add(h.name); html = hostView(h); document.title = `${h.label} · Olympus`; }
+    else {
+      lastState = await api("/api/state");
+      awayHosts = new Set(lastState.hosts.filter((x) => x.sometimes_off && !x.online).map((x) => x.name));
+      html = overview(lastState); document.title = lastState.alerts.length ? `(${lastState.alerts.length}) Olympus` : "Olympus";
+    }
+    lastOk = Date.now();
+    if (html !== lastHtml) { const y = window.scrollY; $("#view").innerHTML = html; lastHtml = html; if (!force) window.scrollTo(0, y); tween($("#view")); }
+  } catch (e) {
+    if (!lastHtml) $("#view").innerHTML = `<div class="card panel"><div class="empty">Couldn't load: ${esc(e.message)}</div></div>`;
+  } finally { busy = false; Suite.setLive(Date.now() - lastOk < 15000); }
+}
+setInterval(refresh, 5000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { refresh(); if (logState.open) loadLogs(); } });
+
+// ------------------------------------------------------------------ logs + actions
+const logState = { open: false, host: null, id: null, lines: [] };
+function renderLogs(jump) {
+  const q = $("#log-filter").value.trim().toLowerCase(), body = $("#log-body");
+  const atBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 40;
+  const lines = q ? logState.lines.filter((l) => l.toLowerCase().includes(q)) : logState.lines;
+  $("#logs").innerHTML = lines.map((l) => {
+    const m = /^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)\.\d+Z?\s(.*)$/.exec(l);
+    let ts = "", txt = l;
+    if (m) { ts = new Date(m[1] + "Z").toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" }); txt = m[2]; }
+    let b = esc(txt);
+    if (q) b = b.replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), (x) => `<mark>${x}</mark>`);
+    const cls = /\b(error|fatal|exception|traceback|failed)\b/i.test(txt) ? "err" : /\b(warn|warning)\b/i.test(txt) ? "wrn" : "";
+    return `${ts ? `<span class="ts">${ts}</span>  ` : ""}<span class="${cls}">${b}</span>`;
+  }).join("\n") || `<span class="muted">${q ? "No matching lines." : "No log output."}</span>`;
+  if ($("#log-follow").checked && (atBottom || jump)) body.scrollTop = body.scrollHeight;
+}
+async function loadLogs(first) {
+  if (!logState.open) return;
+  try {
+    const d = await api(`/api/logs?host=${encodeURIComponent(logState.host)}&id=${logState.id}&tail=1000`);
+    if (!logState.open) return;
+    const changed = d.lines.length !== logState.lines.length || d.lines.at(-1) !== logState.lines.at(-1);
+    logState.lines = d.lines;
+    if (changed || first) renderLogs(first);
+  } catch (e) { $("#logs").textContent = "Couldn't load logs: " + e.message; }
+}
+function openLogs(host, id, name) {
+  Object.assign(logState, { open: true, host, id, lines: [] });
+  $("#log-title").textContent = `${name} logs`;
+  $("#logs").textContent = "Loading…";
+  $("#log-filter").value = "";
+  $("#drawer").classList.add("open");
+  loadLogs(true);
+}
+function closeLogs() { logState.open = false; $("#drawer").classList.remove("open"); }
+setInterval(() => { if (logState.open && !document.hidden) loadLogs(); }, 3000);
+$("#log-filter").addEventListener("input", () => renderLogs(true));
+$("#log-wrap").addEventListener("change", (e) => $("#logs").classList.toggle("nowrap", !e.target.checked));
+
+async function act(host, id, action, name, btn) {
+  const verb = { restart: "Restart", stop: "Stop", start: "Start" }[action];
+  if (!confirm(`${verb} ${name} on ${host}?`)) return;
+  if (btn) { btn.disabled = true; btn.textContent = { restart: "Restarting…", stop: "Stopping…", start: "Starting…" }[action]; }
+  try { await api("/api/action", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ host, id, action }) }); toast(`${name}: ${action} done`); }
+  catch (e) { toast(`${name}: ${e.message}`); }
+  lastHtml = ""; refresh(true);
+}
+
+document.addEventListener("click", (e) => {
+  const t = e.target;
+  if (t.closest("[data-close]") || t.id === "drawer") return closeLogs();
+  const nav = t.closest("[data-nav]"); if (nav) return setRoute(nav.dataset.nav);
+  const lg = t.closest("[data-logs]"); if (lg) return openLogs(route.slice(5), lg.dataset.logs, lg.dataset.name);
+  const a = t.closest("[data-act]"); if (a) return act(route.slice(5), a.dataset.id, a.dataset.act, a.dataset.name, a);
+  const h = t.closest("[data-host]"); if (h) setRoute("host/" + h.dataset.host);
+});
+document.addEventListener("keydown", (e) => {
+  const typing = /input|textarea|select/i.test(document.activeElement?.tagName || "");
+  if (e.key === "Escape") { if (logState.open) closeLogs(); else if (route && !document.querySelector("#oracle.open")) setRoute(""); }
+  if (e.key === "Enter" && document.activeElement?.dataset?.host) setRoute("host/" + document.activeElement.dataset.host);
+  if (!typing && !e.ctrlKey && !e.metaKey && /^[1-9]$/.test(e.key) && lastState?.hosts[+e.key - 1]) setRoute("host/" + lastState.hosts[+e.key - 1].name);
+});
+
+// ------------------------------------------------------------------ search: machines, services, containers
+let containerCache = { t: 0, items: [] };
+async function allContainers() {
+  if (Date.now() - containerCache.t < 10000) return containerCache.items;
+  const hosts = (lastState?.hosts || []).filter((h) => h.online);
+  const lists = await Promise.all(hosts.map((h) => api("/api/host/" + h.name).then((d) => d.containers.map((c) => ({ ...c, host: h.name, hostLabel: h.label }))).catch(() => [])));
+  containerCache = { t: Date.now(), items: lists.flat() };
+  return containerCache.items;
+}
+Suite.Oracle.register(async (q) => {
+  const st = lastState || (await api("/api/state"));
+  const out = st.hosts.map((h, i) => ({ group: "Machines", icon: h.label[0], title: h.label, sub: `${h.role} · ${h.online ? "online" : "offline"}`, hint: String(i + 1), run: () => setRoute("host/" + h.name) }));
+  st.services.filter((s) => s.url).forEach((s) => out.push({ group: "Services", icon: s.name[0], title: `Open ${s.name}`, sub: `${s.host} · ${s.up ? "up" : "down"}`, run: () => window.open(s.url, "_blank", "noopener") }));
+  if (q.length >= 2) {
+    for (const c of await allContainers()) {
+      out.push({ group: "Containers", icon: "≡", title: `${c.name} logs`, sub: `${c.hostLabel} · ${c.status}`, keywords: "logs log", run: () => { setRoute("host/" + c.host); setTimeout(() => openLogs(c.host, c.id, c.name), 450); } });
+      out.push({ group: "Containers", icon: "↻", title: `Restart ${c.name}`, sub: `${c.hostLabel} · asks first`, keywords: "restart reboot", run: () => act(c.host, c.id, "restart", c.name) });
+    }
+  }
+  return out;
+});
+
+Suite.mount({ app: "olympus" });
+refresh(true);
+</script>
+</body>
+</html>

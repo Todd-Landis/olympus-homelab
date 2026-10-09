@@ -1,0 +1,27 @@
+{
+  "hosts": [
+    {"name": "helios", "label": "Helios", "role": "AI hub · always on", "agent": "http://100.88.170.59:9101"},
+    {"name": "horae", "label": "Horae", "role": "Gatekeeper · DNS & home · Raspberry Pi 4", "agent": "http://100.123.23.100:9101"},
+    {"name": "hephaestus", "label": "Hephaestus", "role": "Coding models · tower (Ubuntu side)", "agent": "http://100.102.134.107:9101", "sometimes_off": true}
+  ],
+  "services": [
+    {"id": "openwebui", "name": "Open WebUI", "host": "helios", "desc": "Chat", "url": "https://helios.tail247b74.ts.net", "check": "http://127.0.0.1:3000/health"},
+    {"id": "comfyui", "name": "ComfyUI", "host": "helios", "desc": "Images", "url": "https://helios.tail247b74.ts.net:8443", "check": "http://127.0.0.1:8188/"},
+    {"id": "odysseus", "name": "Odysseus", "host": "helios", "url": "https://helios.tail247b74.ts.net:7443", "check": "http://127.0.0.1:7000/"},
+    {"id": "netwatch", "name": "Network Watch", "host": "helios", "desc": "Browsing", "url": "http://helios:8095", "check": "http://100.88.170.59:8095/api/health"},
+    {"id": "ollama-helios", "name": "Ollama", "host": "helios", "desc": "Models", "check": "http://127.0.0.1:11434/api/version"},
+    {"id": "hubapi", "name": "Automation hub", "host": "helios", "desc": "API", "check": "http://127.0.0.1:8000/"},
+    {"id": "ntfy", "name": "ntfy", "host": "helios", "desc": "Alerts", "check": "http://127.0.0.1:8091/v1/health"},
+    {"id": "horae-dash", "name": "Horae dashboard", "host": "horae", "url": "http://horae/", "check": "http://100.123.23.100/"},
+    {"id": "pihole", "name": "Pi-hole", "host": "horae", "desc": "Ad blocking", "url": "http://horae:8080/admin", "check": "http://100.123.23.100:8080/api/info/login"},
+    {"id": "ha", "name": "Home Assistant", "host": "horae", "desc": "Smart home", "url": "http://horae:8123", "check": "http://100.123.23.100:8123/"},
+    {"id": "ollama-forge", "name": "Ollama", "host": "hephaestus", "desc": "Coding models", "check": "http://100.102.134.107:11434/api/version"}
+  ],
+  "widgets": {
+    "network_watch": "http://100.88.170.59:8095",
+    "ollama": [
+      {"host": "helios", "url": "http://127.0.0.1:11434"},
+      {"host": "hephaestus", "url": "http://100.102.134.107:11434"}
+    ]
+  }
+}
