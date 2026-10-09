@@ -51,6 +51,11 @@ art project; keep it subtle, modern and readable. No dark mode.
    run/approved yet. After `sudo bash ~/exit-node.sh`, approve in Tailscale admin > Machines > horae > Edit route settings.
 3. **Home Assistant**: Todd still needs to create the account, then a long-lived token for a Homepage/Olympus HA widget.
    Don't route the token through chat; have him paste it into a file on the server himself.
+3a. **Matter (Apple Home stays primary)**: `matter-server` container added to `horae/stack/` (matterjs-server, localhost:5580).
+   Todd: `./deploy.sh horae-stack`, then on horae `sudo bash ~/matter-setup.sh`, then add the Matter integration in HA
+   (`ws://localhost:5580/ws`) and share each device from Apple Home (Turn On Pairing Mode -> code -> HA). State syncs live
+   over Matter; devices added to Apple Home later must be shared the same way. Not yet run on the Pi.
+   `pi-setup.sh`'s embedded compose is older than `horae/stack/` (no Matter, Pi-hole not on host network).
 4. **This PC**: set Wi-Fi DNS to 192.168.1.224 (optional once the ASUS is in) and switch the network profile to **Private**
    (Windows blocks mDNS on Public, which is why `horae.local` doesn't resolve here).
 5. **hephaestus**: install the Olympus agent when it's booted into Ubuntu (copy `olympus/agent-horae/docker-compose.yml`,

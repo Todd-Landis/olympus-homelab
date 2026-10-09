@@ -29,6 +29,21 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - /run/dbus:/run/dbus:ro
 
+  # Matter controller for Home Assistant (Container installs have no add-on).
+  # HA: Settings > Devices > Add Integration > Matter > ws://localhost:5580/ws
+  # First run needs: sudo bash ~/matter-setup.sh (data dir owner + IPv6 sysctls).
+  matter-server:
+    image: ghcr.io/matter-js/matterjs-server:stable
+    container_name: matter-server
+    restart: unless-stopped
+    network_mode: host    # mDNS + IPv6 to Matter/Thread devices
+    environment:
+      TZ: ${TZ}
+      PRIMARY_INTERFACE: eth0       # keep Matter off tailscale0/docker0
+      LISTEN_ADDRESS: 127.0.0.1     # the API has no auth: only HA on this box may use it
+    volumes:
+      - ./matter:/data              # Matter fabric keys; in the nightly backup
+
   homepage:
     image: ghcr.io/gethomepage/homepage:latest
     container_name: homepage
