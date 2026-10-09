@@ -109,7 +109,18 @@
   .ask-bar input::placeholder { color: var(--faint); }
   .ask-bar select { font-size: 12.5px; padding: 5px 8px; max-width: 170px; }
   .ask-bar .btn.go { padding: 6px 14px; }
-  .ask-meta { display: flex; justify-content: flex-end; margin-top: 8px; }
+  .ask-meta { display: flex; gap: 16px; margin-top: 8px; }
+  .ask-meta[hidden], .ask-hints[hidden] { display: none; }
+  .ask { margin-bottom: 18px; }
+  .ask-meta #ask-new { margin-left: auto; }
+  .ask-hints { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+  .ask-hints button { font: 500 13px var(--sans); color: var(--text-2); background: var(--surface); border: 1px solid var(--border); border-radius: 99px; padding: 6px 12px; cursor: pointer; }
+  .ask-hints button:hover { border-color: var(--border-strong); color: var(--text); }
+  /* chat mode: typing in the Ask bar hides the dashboard until "Show dashboard" (or Esc) */
+  body:not(.chatting) .ask-thread, body:not(.chatting) .ask-hints { display: none; }
+  body.chatting main { display: none; }
+  body.chatting .ask { min-height: calc(100dvh - 110px); }
+  body.chatting .ask-bar { position: sticky; top: 10px; z-index: 5; box-shadow: 0 -10px 0 var(--bg), var(--shadow-hover); }
   .ask-thread { display: grid; gap: 22px; margin-top: 10px; grid-template-columns: minmax(0, 1fr); }
   .ask-thread:empty { display: none; }
   .turn { display: grid; gap: 10px; padding-bottom: 22px; border-bottom: 1px solid var(--border); grid-template-columns: minmax(0, 1fr); }
@@ -153,7 +164,18 @@
       <select id="ask-backend" aria-label="Model"></select>
       <button class="btn go" id="ask-go">Ask</button>
     </form>
-    <div class="ask-meta" id="ask-meta" hidden><button class="back" id="ask-new">New conversation</button></div>
+    <div class="ask-meta" id="ask-meta" hidden>
+      <button class="back" id="ask-dash" title="Esc">← Show dashboard</button>
+      <button class="back" id="ask-show">Show conversation</button>
+      <button class="back" id="ask-new">New conversation</button>
+    </div>
+    <div class="ask-hints" id="ask-hints">
+      <button type="button">Is everything OK?</button>
+      <button type="button">What did the iPhone look up after 11 pm last night?</button>
+      <button type="button">Any errors in the pihole logs today?</button>
+      <button type="button">How busy was the network each hour today?</button>
+      <button type="button">Which sites were blocked most this week?</button>
+    </div>
     <div class="ask-thread" id="ask-thread" aria-live="polite"></div>
   </section>
   <main>
@@ -351,6 +373,7 @@ let route = location.hash.replace(/^#\/?/, ""), lastHtml = "", busy = false, las
 const setRoute = (r) => { location.hash = r ? "#/" + r : ""; };
 window.addEventListener("hashchange", () => {
   route = location.hash.replace(/^#\/?/, "");
+  if (route) Ask.exit(true);  // a machine card in an answer opens that machine
   Suite.transition(async () => { lastHtml = ""; await refresh(true); if (deckScroll) { deckScroll = false; Deck.reveal(); } else window.scrollTo(0, 0); });
 });
 async function api(path, opts) { const r = await fetch(path, opts); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || r.statusText); return j; }
@@ -439,7 +462,7 @@ document.addEventListener("click", (e) => {
 });
 document.addEventListener("keydown", (e) => {
   const typing = /input|textarea|select/i.test(document.activeElement?.tagName || "");
-  if (e.key === "Escape") { if (logState.open) closeLogs(); else if (route && !document.querySelector("#oracle.open")) setRoute(""); }
+  if (e.key === "Escape" && !e.target.closest?.("#oracle") && !document.querySelector("#oracle.open")) { if (logState.open) closeLogs(); else if (Ask.active()) Ask.exit(); else if (route) setRoute(""); }
   if (e.key === "Enter" && document.activeElement?.dataset?.host) setRoute("host/" + document.activeElement.dataset.host);
   if (!typing && !e.ctrlKey && !e.metaKey && /^[1-9]$/.test(e.key) && lastState?.hosts[+e.key - 1]) setRoute("host/" + lastState.hosts[+e.key - 1].name);
 });
@@ -606,7 +629,33 @@ const Ask = (() => {
     sel.hidden = backends.length < 2;
   }).catch(() => { sel.innerHTML = ""; });
   sel.addEventListener("change", () => { try { localStorage.setItem("olympus.ask.backend", sel.value); } catch {} });
-  $("#ask-new").addEventListener("click", () => { conv = null; thread.innerHTML = ""; $("#ask-meta").hidden = true; input.focus(); });
+  $("#ask-new").addEventListener("click", () => { conv = null; thread.innerHTML = ""; sync(); input.focus(); });
+  $("#ask-dash").addEventListener("click", () => exit());
+  $("#ask-show").addEventListener("click", () => { enter(); input.focus(); });
+  $("#ask-hints").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b && !busy) { input.value = ""; ask(b.textContent); } });
+  input.addEventListener("input", () => { if (input.value.trim()) enter(); });
+
+  // Chat mode keeps you in the conversation: the dashboard hides until you ask for it back.
+  const active = () => document.body.classList.contains("chatting");
+  function sync() {
+    const turns = thread.children.length, on = active();
+    $("#ask-dash").hidden = !on;
+    $("#ask-show").hidden = on || !turns;
+    $("#ask-show").textContent = `Show conversation (${turns})`;
+    $("#ask-new").hidden = !turns;
+    $("#ask-meta").hidden = !on && !turns;
+    $("#ask-hints").hidden = !!turns;
+  }
+  function enter() {
+    if (active()) return;
+    Suite.transition(() => { document.body.classList.add("chatting"); sync(); window.scrollTo(0, 0); });
+  }
+  function exit(now) {
+    if (!active()) return;
+    const go = () => { document.body.classList.remove("chatting"); sync(); input.blur(); };
+    now ? go() : Suite.transition(() => { go(); window.scrollTo(0, 0); });  // now: the caller scrolls to something on the dashboard next
+  }
+  sync();
 
   function handle(ev, turn) {
     const steps = turn.querySelector(".steps"), tiles = turn.querySelector(".tiles"), a = turn.querySelector(".a");
@@ -630,7 +679,7 @@ const Ask = (() => {
     const turn = document.createElement("article");
     turn.className = "turn";
     turn.innerHTML = `<div class="q">${esc(q)}</div><div class="steps"><span class="step wait"><span class="dot warn live"></span>Thinking</span></div><div class="tiles"></div><div class="a"></div>`;
-    thread.prepend(turn); $("#ask-meta").hidden = false;
+    enter(); thread.prepend(turn); sync();
     try {
       const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: q, backend: sel.value, conv }) });
       if (!r.ok || !r.body) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
@@ -661,11 +710,12 @@ const Ask = (() => {
     input.value = "";
     ask(q);
   });
-  return { focus: () => input.focus() };
+  return { focus: () => input.focus(), exit, active };
 })();
 // Show an app in the panel (from a tile, the nav, or search). Returns false if it can't be embedded, so callers fall back to a new tab.
 function openApp(id) {
   if (!Deck.select(id)) return false;
+  Ask.exit(true);
   if (route) { deckScroll = true; setRoute(""); } else Deck.reveal();
   return true;
 }
