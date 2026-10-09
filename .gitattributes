@@ -1,0 +1,2 @@
+# Everything here runs on Linux: always LF, even on Windows checkouts.
+* text=auto eol=lf
