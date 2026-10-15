@@ -12,8 +12,12 @@ This file is the current state, what changed recently, open items, how to work h
 | helios | 100.88.170.59 | 192.168.50.3 (reserved, Wi-Fi 5016Shoreside 2.4 GHz) | Ubuntu laptop server. Also runs `/opt/ai-stack` (NOT in this repo; see `~/handoff/HANDOFF.md` on helios) |
 | horae | 100.123.23.100 | 192.168.50.2 (reserved, Ethernet) | Raspberry Pi 4, Pi OS Lite (trixie, cloud-init). Renamed from `pihub` |
 | hephaestus | 100.102.134.107 | 192.168.50.5 (reserved, Wi-Fi 5016Shoreside 5 GHz, Wi-Fi 7) | Tower, dual boot; a server only in Ubuntu. Olympus agent reports |
-| desktop-ajq2ikv | 100.73.62.100 | automatic | Todd's Windows laptop (this PC), on 5016Shoreside, profile Private |
+| Todd's Mac | `tailscale ip -4` on it | automatic | Todd's laptop since 2026-10-15; deploys run from here. helios trusts its SSH key; **horae doesn't yet** (open item 4) |
 | iphone181 | 100.110.215.44 | automatic | Todd's iPhone, on 5016Shoreside |
+
+The old Windows laptop (`desktop-ajq2ikv`, 100.73.62.100) was **wiped and given away** (2026-10-15). It can't be used for
+anything: don't suggest it. Its leftovers: remove it from the Tailscale admin console, its SSH key from `authorized_keys` on
+helios and horae, and the Odysseus share it served (see "Odysseus after a reboot").
 
 **Running services**
 
@@ -86,7 +90,9 @@ readable. No dark mode.
    If it fails, read `journalctl -u dragonwilds` around the attempt.
 2. **Exit node from away**: try it on the iPhone off home Wi-Fi; https://ifconfig.me should show the home IP.
 3. **todd-desktop** (and other PCs) -> 5016Shoreside when convenient. iPhone: confirm Configure DNS = Automatic.
-4. **Design refresh (2026-10-15) to ship**: `./deploy.sh olympus`, `./deploy.sh netwatch`, `./deploy.sh horae-theme`, `./deploy.sh horae-ha`
+4. **Design refresh (2026-10-15) to ship**, from the Mac. First horae has to trust the Mac's key, and only someone at the Pi can
+   add it (passwords are off, and helios has no key for horae): keyboard + micro-HDMI screen on the Pi, log in as synestri, append
+   the Mac's `~/.ssh/id_ed25519.pub` line to `~/.ssh/authorized_keys`. Then `./deploy.sh olympus`, `./deploy.sh netwatch`, `./deploy.sh horae-theme`, `./deploy.sh horae-ha`
    + `sudo bash ~/olympus-ha/ha-theme.sh` on horae, then pick Olympus as HA's theme; apply the stack for Pi-hole's light
    theme (`sudo bash -c 'cd /opt/pihub && docker compose up -d pihole'`). Check Horae (Homepage) in a browser: its overrides
    can't be tested locally.
@@ -95,7 +101,7 @@ readable. No dark mode.
 6. **Unidentified devices** in Network (`Device ·16:0c`, `Device ·5e:c5`, `Device ·5a:4e`, `virtual interface ·00:00`, the TP-Link /
    Espressif / AMPAK / Logitech ones): name them by MAC (Olympus Dashboard or `names.json`) once Todd knows what they are.
 7. **Wi-Fi column** fills in as devices reconnect (joins right after the router reboot weren't logged).
-8. `horae.local` resolves only partly on this PC (mDNS); use `horae` or `horae.home`.
+8. Prefer `horae` or `horae.home` over `horae.local` (mDNS resolved only partly on the old Windows laptop).
 9. Possible: login on Olympus/Network if the tailnet is ever shared. Network logs **everyone's** browsing at home
    (e.g. Connor's S24, guests); Todd was told it's fair to let household members know.
 
@@ -168,11 +174,11 @@ Done today (details above): router move, Dragonwilds forwards, history clean-up,
 
 - **cloud-init** re-applies the hostname at every boot (`preserve_hostname: false`). horae's name is pinned by
   `/etc/cloud/cloud.cfg.d/99-keep-hostname.cfg` and `hostname: horae` in `/boot/firmware/user-data`.
-- **Line endings**: Git on this PC uses autocrlf; `.gitattributes` forces LF. Scripts with CRLF break on Linux.
+- **Line endings**: `.gitattributes` forces LF (Git on Windows used autocrlf). Scripts with CRLF break on Linux.
 - **Python as PID 1** ignores SIGTERM: every custom container has `init: true` (restarts take ~0.4 s, not 10 s).
 - **Docker port publishing hides client IPs** for Tailscale traffic: that's why Pi-hole and the agents use host networking.
-- `/mnt/win-ai-workspace` on helios is a CIFS share from this PC (systemd automount); excluded from agent disk stats because statvfs
-  hangs when the PC sleeps, and it's why Odysseus can fail to start at boot.
+- `/mnt/win-ai-workspace` on helios was a CIFS share from the old Windows laptop (systemd automount), which is gone; excluded
+  from agent disk stats because statvfs hangs when the share is unreachable, and it's why Odysseus can fail to start at boot.
 - `pi-setup.sh` rewrites `/opt/pihub/docker-compose.yml` if re-run; the repo's `horae/stack/docker-compose.yml` is the truth.
   Applying it needs sudo (`.env` is root-only).
 - Homepage's Tailwind uses `.grid`; `deploy.sh horae-theme` strips the suite's `.grid` rule from the bundle. If you change that
@@ -202,3 +208,6 @@ Odysseus (`/opt/ai-stack/odysseus`) bind-mounts `/mnt/win-ai-workspace`, a CIFS 
 isn't reachable when helios boots, Docker fails to start it ("no such device") and doesn't retry. `scripts/helios/odysseus-autostart.sh`
 (installed as `~/bin/odysseus-autostart.sh`, run by synestri's crontab `@reboot`) retries every 30 s for 30 min once the share
 is readable. Log: `journalctl -t odysseus-autostart`. If the laptop is off longer, start it from Olympus. Tested 2026-10-09.
+
+**2026-10-15: that laptop is wiped and gone**, so the share will never come back. Odysseus needs its workspace moved
+(a local folder on helios, or a share from the Mac) before it can start again; until then the autostart retries and gives up.
