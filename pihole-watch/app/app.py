@@ -161,7 +161,8 @@ class UnixHTTPConnection(http.client.HTTPConnection):
 
 
 class Names:
-    """Maps client IPs to friendly names: names.json > Tailscale > Pi-hole (router DHCP names) > IP."""
+    """Maps devices (MACs, and IPs without one) to friendly names: names.json > Tailscale > Pi-hole (router DHCP names)
+    > maker. A LAN IP gets the name of the device holding it now."""
 
     def __init__(self):
         self.tailnet = {}
@@ -189,11 +190,9 @@ class Names:
         with self.lock:
             self._refresh()
             with db() as c:
-                lan = {r["ip"]: r["name"] for r in c.execute("SELECT ip, name FROM names")}
+                hosts = {r["ip"]: r["name"] for r in c.execute("SELECT ip, name FROM names")}
+                dev_hosts = {r["dev"]: r["name"] for r in c.execute("SELECT dev, name FROM devnames")}
                 hw = {r["ip"]: (r["mac"], r["vendor"]) for r in c.execute("SELECT ip, mac, vendor FROM devices")}
-            # Fallback for devices that never send a name: maker + end of the hardware address, e.g. "TP-Link ·e3:20".
-            names = {ip: f"{short_vendor(v) or 'Device'} ·{m[-5:]}" for ip, (m, v) in hw.items()}
-            names.update({**lan, "127.0.0.1": "horae", "::1": "horae", **self.tailnet})
             try:
                 overrides = json.loads(NAMES_FILE.read_text())
             except FileNotFoundError:
@@ -203,13 +202,31 @@ class Names:
                 overrides = {}
             # Keys are IPs, hardware (MAC) addresses, or router hostnames (case-insensitive) for devices without a fixed IP.
             by_key = {k.lower(): v for k, v in overrides.items()}
-            for ip, host in lan.items():
-                if host.lower() in by_key:
-                    names[ip] = by_key[host.lower()]
-            for ip, (mac, _) in hw.items():
-                if mac and mac.lower() in by_key:
-                    names[ip] = by_key[mac.lower()]
+            vendors = {m: v for m, v in hw.values()}
+            # Named on purpose: by MAC, or by the reserved IP it holds. These may merge devices (that's how renames merge).
+            chosen = {m: by_key[m] for m in vendors if m in by_key}
+            for ip, (m, _) in hw.items():
+                if ip in overrides and m not in chosen:
+                    chosen[m] = overrides[ip]
+            # Automatic names, weakest first. Fallback for devices that never send a name: maker + end of the hardware
+            # address, e.g. "TP-Link ·e3:20". Then the router hostname, or names.json's name for that hostname.
+            auto = {m: f"{short_vendor(v) or 'Device'} ·{m[-5:]}" for m, v in vendors.items()}
+            for key, host in {**hosts, **dev_hosts}.items():
+                auto[key] = by_key.get(host.lower(), host)
+            # A hostname isn't an identity: two Macs both called "Mac" stay two devices ("Mac ·35:c1", "Mac ·bd:26").
+            # Renamed devices still count, so naming one doesn't change the other's name.
+            shared = {}
+            for m in vendors:
+                shared.setdefault(auto[m], []).append(m)
+            for name, ms in shared.items():
+                if len(ms) > 1:
+                    for m in ms:
+                        auto[m] = name if name.endswith(m[-5:]) else f"{name} ·{m[-5:]}"
+            names = {**auto, "127.0.0.1": "horae", "::1": "horae", **self.tailnet, **chosen}
             names.update(overrides)
+            for ip, (m, _) in hw.items():
+                if ip not in overrides:
+                    names[ip] = names[m]
             return names
 
     def name(self, ip, mapping=None):
@@ -240,18 +257,26 @@ def write_json(path, data):
     tmp.replace(path)  # atomic: readers never see half a file
 
 
-def people_map():
-    return {k: v for k, v in read_json(PEOPLE_FILE, {}).items() if isinstance(v, list)}
+SPLIT_SUFFIX = re.compile(r" ·[0-9a-f]{2}:[0-9a-f]{2}$")
+
+
+def people_map(names=None):
+    pm = {k: v for k, v in read_json(PEOPLE_FILE, {}).items() if isinstance(v, list)}
+    for n in set((names or {}).values()):  # "iPad ·e2:48" keeps the people given to "iPad" before it was split
+        base = SPLIT_SUFFIX.sub("", n)
+        if n not in pm and base != n and base in pm:
+            pm[n] = pm[base]
+    return pm
 
 
 def api_registry(names):
     with db() as c:
-        rows = c.execute("SELECT client, COUNT(*) n, MAX(t) last FROM q WHERE t >= ? GROUP BY client",
+        rows = c.execute("SELECT dev, COUNT(*) n, MAX(t) last FROM q WHERE t >= ? GROUP BY dev",
                          [time.time() - 86400]).fetchall()
-        seen = {r["client"]: r["last"] for r in c.execute(
-            "SELECT client, MAX(t) last FROM q WHERE t >= ? GROUP BY client", [time.time() - RETENTION_DAYS * 86400])}
-    day = {r["client"]: r["n"] for r in rows}
-    people, devs = people_map(), {}
+        seen = {r["dev"]: r["last"] for r in c.execute(
+            "SELECT dev, MAX(t) last FROM q WHERE t >= ? GROUP BY dev", [time.time() - RETENTION_DAYS * 86400])}
+    day = {r["dev"]: r["n"] for r in rows}
+    people, devs = people_map(names), {}
     for ip in set(names) | set(seen):
         name = names.get(ip, ip)
         d = devs.setdefault(name, {"name": name, "ips": [], "people": people.get(name, []), "lookups_24h": 0, "last": None})
@@ -275,8 +300,8 @@ def api_registry_save(names, body):
         ips = [ip for ip, n in mapping.items() if n == name]
         if not ips:
             with db() as c:
-                if c.execute("SELECT 1 FROM q WHERE client = ? LIMIT 1", [name]).fetchone():
-                    ips = [name]  # an unnamed device, known only by its IP
+                if c.execute("SELECT 1 FROM q WHERE dev = ? LIMIT 1", [name]).fetchone():
+                    ips = [name]  # an unnamed device, known only by its IP or MAC
         if not ips:
             raise ValueError(f"No device called {name!r}")
         if new != name:
@@ -326,6 +351,16 @@ def init_db():
             c.execute("ALTER TABLE devices ADD COLUMN last REAL")
         except sqlite3.OperationalError:
             pass
+        # Added 2026-10-15: dev = the device behind a lookup (its MAC when Pi-hole knows it, else the IP), fixed when the
+        # lookup is stored, so history stays with the device when the router hands its IP to another one later.
+        c.execute("CREATE TABLE IF NOT EXISTS devnames (dev TEXT PRIMARY KEY, name TEXT, t REAL)")  # dev -> router hostname
+        if "dev" not in [r[1] for r in c.execute("PRAGMA table_info(q)")]:
+            c.execute("ALTER TABLE q ADD COLUMN dev TEXT")
+            # Older rows only have the IP: give them the MAC that holds it now (what names showed before this change).
+            c.execute("UPDATE q SET dev = COALESCE((SELECT mac FROM devices d WHERE d.ip = q.client), client)")
+            c.execute("INSERT OR IGNORE INTO devnames SELECT COALESCE(d.mac, n.ip), n.name, n.t "
+                      "FROM names n LEFT JOIN devices d ON d.ip = n.ip")
+        c.execute("CREATE INDEX IF NOT EXISTS q_dev_t ON q(dev, t)")
 
 
 STATE = {"last_sync": None, "last_error": None, "synced_rows": 0}
@@ -335,6 +370,7 @@ def sync_once(ph):
     now = time.time()
     with db() as c:
         last = c.execute("SELECT MAX(t) FROM q").fetchone()[0]
+        macs = {r["ip"]: r["mac"] for r in c.execute("SELECT ip, mac FROM devices")}
     # Re-read a minute back so in-progress queries get their final status.
     since = last - 60 if last else now - RETENTION_DAYS * 86400
     page, start, cursor, rows, seen = 2000, 0, None, [], {}
@@ -353,14 +389,16 @@ def sync_once(ph):
             domain = (x.get("domain") or "").lower().rstrip(".")
             if x.get("type") == "PTR" or "." not in domain or domain.endswith(".arpa") or domain == "pi.hole":
                 continue
-            rows.append((x["id"], x["time"], (x.get("client") or {}).get("ip") or "?", domain,
-                         base_domain(domain), x.get("status") or "UNKNOWN", x.get("type")))
+            ip = (x.get("client") or {}).get("ip") or "?"
+            rows.append((x["id"], x["time"], ip, domain, base_domain(domain), x.get("status") or "UNKNOWN",
+                         x.get("type"), macs.get(ip) or ip))
         if len(batch) < page:
             break
         start += page
     with db() as c:
-        c.executemany("INSERT OR REPLACE INTO q VALUES (?,?,?,?,?,?,?)", rows)
+        c.executemany("INSERT OR REPLACE INTO q (id, t, client, domain, base, status, type, dev) VALUES (?,?,?,?,?,?,?,?)", rows)
         c.executemany("INSERT OR REPLACE INTO names VALUES (?,?,?)", [(ip, n, now) for ip, n in seen.items()])
+        c.executemany("INSERT OR REPLACE INTO devnames VALUES (?,?,?)", [(macs.get(ip) or ip, n, now) for ip, n in seen.items()])
         c.execute("DELETE FROM q WHERE t < ?", (now - RETENTION_DAYS * 86400,))
     return len(rows)
 
@@ -375,6 +413,7 @@ def sync_devices(ph):
         for a in d.get("ips", []):
             if a.get("ip"):
                 rows.append((a["ip"], mac, d.get("macVendor") or "", now, a.get("lastSeen") or d.get("lastQuery") or 0))
+    rows.sort(key=lambda r: r[4])  # Pi-hole remembers old holders of an IP too: the one seen last must win
     with db() as c:
         c.executemany("INSERT OR REPLACE INTO devices (ip, mac, vendor, t, last) VALUES (?,?,?,?,?)", rows)
 
@@ -423,7 +462,7 @@ def wifi_labels():
 
 
 def lan_info():
-    """ip -> {mac, vendor, wifi, last} for devices Pi-hole has seen; wifi = network name (or radio, until named)."""
+    """ip (and mac) -> {mac, vendor, wifi, last} for devices Pi-hole has seen; wifi = network name (or radio, until named)."""
     labels = wifi_labels()
     with db() as c:
         wifi = {r["mac"]: r["iface"] for r in c.execute("SELECT mac, iface FROM wifi")}
@@ -434,6 +473,8 @@ def lan_info():
         # wifi.json maps radios to network names, and can also pin a MAC (e.g. a wired device -> "Wired").
         net = labels.get(r["mac"]) or (labels.get(iface, iface) if iface else None)
         out[r["ip"]] = {"mac": r["mac"], "vendor": r["vendor"], "last": r["last"], "wifi": net}
+        if r["mac"] not in out or (r["last"] or 0) >= (out[r["mac"]]["last"] or 0):  # by MAC too (lookups' dev key)
+            out[r["mac"]] = out[r["ip"]]
     for key, net in labels.items():  # IP keys (e.g. horae, which Pi-hole doesn't list with a MAC)
         if ip_num(key) is not None:
             out.setdefault(key, {"mac": None, "vendor": "", "last": None, "wifi": None})["wifi"] = net
@@ -591,13 +632,13 @@ class Filters:
     def where(self, extra=None):
         sql, args = ["t >= ?"], [self.since]
         if self.device:
-            ips = [ip for ip, n in self.names.items() if n == self.device] or [self.device]
-            sql.append("client IN (%s)" % ",".join("?" * len(ips)))
-            args += ips
+            keys = [k for k, n in self.names.items() if n == self.device] or [self.device]
+            sql.append("dev IN (%s)" % ",".join("?" * len(keys)))
+            args += keys
         if self.wifi:
-            ips = [ip for ip, v in self.lan.items() if v["wifi"] == self.wifi] or ["-"]
-            sql.append("client IN (%s)" % ",".join("?" * len(ips)))
-            args += ips
+            keys = [k for k, v in self.lan.items() if v["wifi"] == self.wifi] or ["-"]
+            sql.append("dev IN (%s)" % ",".join("?" * len(keys)))
+            args += keys
         if self.noise:
             sql.append("base NOT IN (%s)" % ",".join("?" * len(NOISE)))
             args += sorted(NOISE)
@@ -611,8 +652,8 @@ def api_summary(f):
     bucket = 3600 if f.hours <= 72 else 86400
     with db() as c:
         per_client = c.execute(
-            f"SELECT client, COUNT(*) n, SUM({BLOCKED_SQL}) b, COUNT(DISTINCT base) s, MAX(t) last "
-            f"FROM q WHERE {w} GROUP BY client", a).fetchall()
+            f"SELECT dev, GROUP_CONCAT(DISTINCT client) ips, COUNT(*) n, SUM({BLOCKED_SQL}) b, COUNT(DISTINCT base) s, "
+            f"MAX(t) last FROM q WHERE {w} GROUP BY dev", a).fetchall()
         totals = c.execute(
             f"SELECT COUNT(*) n, SUM({BLOCKED_SQL}) b, COUNT(DISTINCT base) s FROM q WHERE {w}", a).fetchone()
         hist = c.execute(
@@ -623,10 +664,11 @@ def api_summary(f):
             a).fetchall()
     devices = {}
     for r in per_client:
-        d = devices.setdefault(f.names.get(r["client"], r["client"]), {"queries": 0, "blocked": 0, "sites": 0, "last": 0, "ips": [], "wifi": None})
-        d["wifi"] = d["wifi"] or (f.lan.get(r["client"]) or {}).get("wifi")
+        d = devices.setdefault(f.names.get(r["dev"], r["dev"]), {"queries": 0, "blocked": 0, "sites": 0, "last": 0, "ips": [], "wifi": None})
+        d["wifi"] = d["wifi"] or (f.lan.get(r["dev"]) or {}).get("wifi")
         d["queries"] += r["n"]; d["blocked"] += r["b"] or 0
-        d["sites"] = max(d["sites"], r["s"]); d["last"] = max(d["last"], r["last"]); d["ips"].append(r["client"])
+        d["sites"] = max(d["sites"], r["s"]); d["last"] = max(d["last"], r["last"])
+        d["ips"] += [ip for ip in (r["ips"] or "").split(",") if ip and ip not in d["ips"]]
     nb = int(f.hours * 3600 // bucket) + 1
     series = [{"t": f.since + i * bucket, "queries": 0, "blocked": 0} for i in range(nb)]
     for r in hist:
@@ -643,14 +685,14 @@ def api_sites(f):
     w, a = f.where()
     with db() as c:
         rows = c.execute(
-            f"SELECT base, client, COUNT(*) n, SUM({BLOCKED_SQL}) b, MIN(t) first, MAX(t) last "
-            f"FROM q WHERE {w} GROUP BY base, client", a).fetchall()
+            f"SELECT base, dev, COUNT(*) n, SUM({BLOCKED_SQL}) b, MIN(t) first, MAX(t) last "
+            f"FROM q WHERE {w} GROUP BY base, dev", a).fetchall()
     sites = {}
     for r in rows:
         s = sites.setdefault(r["base"], {"site": r["base"], "queries": 0, "blocked": 0, "first": r["first"], "last": 0, "devices": {}})
         s["queries"] += r["n"]; s["blocked"] += r["b"] or 0
         s["first"] = min(s["first"], r["first"]); s["last"] = max(s["last"], r["last"])
-        name = f.names.get(r["client"], r["client"])
+        name = f.names.get(r["dev"], r["dev"])
         s["devices"][name] = s["devices"].get(name, 0) + r["n"]
     return sorted(sites.values(), key=lambda s: -s["last"])[:3000]
 
@@ -659,7 +701,7 @@ def collapse_visits(events, names):
     """Turn raw lookups into visits: same device + same site, no gap longer than VISIT_GAP."""
     open_, visits = {}, []
     for e in events:
-        key = (names.get(e["client"], e["client"]), e["base"])
+        key = (names.get(e["dev"], e["dev"]), e["base"])
         v = open_.get(key)
         if v and e["t"] - v["end"] <= VISIT_GAP:
             v["end"] = e["t"]; v["queries"] += 1; v["blocked"] += e["blk"]
@@ -678,7 +720,7 @@ def api_timeline(f):
     w, a = f.where()
     with db() as c:
         events = c.execute(
-            f"SELECT t, client, domain, base, {BLOCKED_SQL} blk FROM q WHERE {w} ORDER BY t", a).fetchall()
+            f"SELECT t, dev, domain, base, {BLOCKED_SQL} blk FROM q WHERE {w} ORDER BY t", a).fetchall()
     return collapse_visits(events, f.names)[:4000]
 
 
@@ -690,7 +732,7 @@ def api_site(f, site):
             f"SELECT domain, COUNT(*) n, SUM({BLOCKED_SQL}) b, MAX(t) last FROM q WHERE {w} "
             f"GROUP BY domain ORDER BY n DESC", a).fetchall()
         events = c.execute(
-            f"SELECT t, client, domain, base, {BLOCKED_SQL} blk FROM q WHERE {w} ORDER BY t", a).fetchall()
+            f"SELECT t, dev, domain, base, {BLOCKED_SQL} blk FROM q WHERE {w} ORDER BY t", a).fetchall()
     return {"site": site, "subdomains": [dict(r) for r in subs], "visits": collapse_visits(events, f.names)[:1000]}
 
 
@@ -698,11 +740,11 @@ def api_blocked(f):
     w, a = f.where(BLOCKED_SQL)
     with db() as c:
         rows = c.execute(
-            f"SELECT domain, base, client, status, COUNT(*) n, MAX(t) last FROM q WHERE {w} "
-            f"GROUP BY domain, client ORDER BY last DESC LIMIT 2000", a).fetchall()
+            f"SELECT domain, base, client, dev, status, COUNT(*) n, MAX(t) last FROM q WHERE {w} "
+            f"GROUP BY domain, dev ORDER BY last DESC LIMIT 2000", a).fetchall()
     merged = {}  # one row per domain + device, even when a device has several IPs
     for r in rows:
-        device = f.names.get(r["client"], r["client"])
+        device = f.names.get(r["dev"], r["dev"])
         m = merged.setdefault((r["domain"], device), {**dict(r), "device": device, "n": 0, "last": 0})
         m["n"] += r["n"]
         m["last"] = max(m["last"], r["last"])
@@ -730,22 +772,22 @@ def api_query(params, names):
     matched = []
     if p("device"):
         want = p("device").lower()
-        ips = [ip for ip, n in names.items() if n.lower() == want or ip == want]
-        if not ips:
-            ips = [ip for ip, n in names.items() if want in n.lower()]
-        matched = sorted({names.get(ip, ip) for ip in ips}) or [p("device")]
-        ips = ips or [p("device")]
-        sql.append("client IN (%s)" % ",".join("?" * len(ips)))
-        args += ips
-    pm, people_matched = people_map(), []
+        keys = [k for k, n in names.items() if n.lower() == want or k.lower() == want]
+        if not keys:
+            keys = [k for k, n in names.items() if want in n.lower()]
+        matched = sorted({names.get(k, k) for k in keys}) or [p("device")]
+        keys = [k for k, n in names.items() if n in matched] + [p("device")]  # an IP or MAC asked for: its whole device
+        sql.append("dev IN (%s)" % ",".join("?" * len(keys)))
+        args += keys
+    pm, people_matched = people_map(names), []
     if p("person"):
         want = p("person").lower()
         hit = lambda exact: [d for d, ps in pm.items() if any((x.lower() == want) if exact else (want in x.lower()) for x in ps)]
         devs = hit(True) or hit(False)
         people_matched = sorted({x for d in devs for x in pm[d] if want in x.lower()}) or [p("person")]
-        ips = [ip for ip, n in names.items() if n in devs] or ["(nobody)"]
-        sql.append("client IN (%s)" % ",".join("?" * len(ips)))
-        args += ips
+        keys = [k for k, n in names.items() if n in devs] or ["(nobody)"]
+        sql.append("dev IN (%s)" % ",".join("?" * len(keys)))
+        args += keys
     if p("domain"):
         sql.append(r"domain LIKE ? ESCAPE '\'")
         args.append("%" + re.sub(r"[%\\]", "", p("domain").lower()).replace("_", r"\_") + "%")
@@ -764,9 +806,9 @@ def api_query(params, names):
     with db() as c:
         tot = c.execute(f"SELECT COUNT(*) n, SUM({BLOCKED_SQL}) b FROM q WHERE {w}", args).fetchone()
         if group == "none":
-            rows = [{"t": r["t"], "device": names.get(r["client"], r["client"]), "domain": r["domain"],
+            rows = [{"t": r["t"], "device": names.get(r["dev"], r["dev"]), "domain": r["domain"],
                      "blocked": bool(r["blk"])}
-                    for r in c.execute(f"SELECT t, client, domain, {BLOCKED_SQL} blk FROM q WHERE {w} "
+                    for r in c.execute(f"SELECT t, dev, domain, {BLOCKED_SQL} blk FROM q WHERE {w} "
                                        f"ORDER BY t DESC LIMIT ?", [*args, limit])]
         elif group == "weekday_hour":  # Monday = 0; 1970-01-01 was a Thursday
             rows = [{"weekday": r["wd"], "hour": r["hr"], "queries": r["n"], "blocked": r["b"] or 0}
@@ -779,7 +821,7 @@ def api_query(params, names):
                     for r in c.execute(f"SELECT CAST((t + ?) / ? AS INT) k, COUNT(*) n, SUM({BLOCKED_SQL}) b "
                                        f"FROM q WHERE {w} GROUP BY k ORDER BY k", [off, size, *args])]
         else:
-            col = {"site": "base", "domain": "domain", "device": "client", "person": "client"}[group]
+            col = {"site": "base", "domain": "domain", "device": "dev", "person": "dev"}[group]
             merged = {}
             for r in c.execute(f"SELECT {col} k, COUNT(*) n, SUM({BLOCKED_SQL}) b, MIN(t) first, MAX(t) last "
                                f"FROM q WHERE {w} GROUP BY {col}", args):

@@ -39,6 +39,11 @@ helios and horae, and the Odysseus share it served (see "Odysseus after a reboot
 or a router hostname (case-insensitive). Unnamed devices show as maker + end of MAC (e.g. `TP-Link ·e3:20`). Order: names.json >
 Tailscale > router hostname (via Pi-hole) > maker fallback. Renames from the Olympus Dashboard are saved by MAC when Pi-hole
 knows it (IP otherwise), so a name doesn't drift to another device when automatic IPs change.
+Since 2026-10-15 each lookup also stores `dev` (the MAC behind its IP at that moment, else the IP) and history groups by it,
+so it stays with the device when the router later gives that IP to someone else; a LAN IP shows the name of whoever holds it
+now. A router hostname is not an identity: when several MACs share an automatic name ("Mac", "iPad", "EP25") each gets the
+end of its MAC (`iPad ·e2:48`), and inherits the people given to the plain name in `people.json` until it's named itself.
+Merging stays deliberate: give two MACs the same name (e.g. one Apple Watch on a rotating private address).
 
 **Wi-Fi per device** (`~/pihole-watch/data/wifi.json`, copy in `pihole-watch/wifi.example.json`): `wl0.1`/`wl1.1` = 5016Shoreside,
 `wl0.2`/`wl1.2` = SpectrumSetup-DB35 (IoT), `192.168.50.2` = Wired. Devices show their network after they next (re)connect.
@@ -64,7 +69,14 @@ readable. No dark mode.
    `docker compose up -d pihole` alone would have changed nothing). Todd ran `ha-theme.sh` (configuration.yaml backup
    `/opt/pihub/homeassistant/configuration.yaml.bak-20261015-130424`) and recreated Pi-hole. Served CSS checked
    against the repo on all three dashboards.
-3. **Network Watch can't show full URLs**, only domains: it's built on DNS, and paths travel inside HTTPS. Getting them
+3. **Network Watch keeps history per device**, not per IP (see "Device names in Network"). Found because a Mac labelled
+   Connor's was Todd's own MacBook Pro: two Macs both report the router hostname "Mac" and had merged, with "Mac" -> Connor
+   in `people.json`. Fixed the data first (backups `names.json.bak-20261015-132942`, `people.json.bak-20261015-132942`:
+   `ae:31:0e:5d:bd:26` = Todd's MacBook Pro, `0a:fd:1e:09:35:c1` = Connor's Mac, generic "Mac" entry removed), then the code.
+   The migration added `q.dev` and backfilled it from the current IP -> MAC table (older history can't do better).
+   DB backup before it: `~/pihole-watch/data/watch.db.bak-20261015-devkeys` on helios (89 MB; Todd may delete it).
+   Split by it: 8 Kasa plugs (`EP25 ·…`), two `Apple Watch`, two `iPad`, two `Todd's Surface Laptop` MACs.
+4. **Network Watch can't show full URLs**, only domains: it's built on DNS, and paths travel inside HTTPS. Getting them
    would take a TLS-intercepting proxy; Todd was told why that's not recommended here.
 
 ## Changes on 2026-10-09
@@ -115,6 +127,8 @@ readable. No dark mode.
    Mode -> code -> HA) still to check/finish. Then a long-lived token for an HA widget; Todd saves it on the server himself.
 6. **Unidentified devices** in Network (`Device ·16:0c`, `Device ·5e:c5`, `Device ·5a:4e`, `virtual interface ·00:00`, the TP-Link /
    Espressif / AMPAK / Logitech ones): name them by MAC (Olympus Dashboard or `names.json`) once Todd knows what they are.
+   Also the splits from 2026-10-15: is `Apple Watch ·c0:1a` / `·3a:23` one watch (rotating address) or two? Which `iPad` is
+   whose? Same name for both = merged. On Apple devices, Private Wi-Fi Address = **Fixed** keeps one MAC per network.
 7. **Wi-Fi column** fills in as devices reconnect (joins right after the router reboot weren't logged).
 8. Prefer `horae` or `horae.home` over `horae.local` (mDNS resolved only partly on the old Windows laptop).
 9. Possible: login on Olympus/Network if the tailnet is ever shared. Network logs **everyone's** browsing at home
