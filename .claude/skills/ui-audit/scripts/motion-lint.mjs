@@ -2,7 +2,8 @@
 // Static motion checks over CSS (and <style> blocks in HTML), after Emil Kowalski's review checklist.
 //   node motion-lint.mjs <file.css|file.html> [...]      (or: <states.mjs>, which may export `cssFiles`)
 // Flags: transition on `all` / shorthand without properties · ease-in on UI · durations over 300ms (looping animations
-// exempt) · :hover transforms outside @media (hover: hover) · entrances from scale(0). Warnings only: judgement applies.
+// exempt) · :hover transforms outside @media (hover: hover) · entrances from scale(0) · transitions on layout properties
+// (width, height, top/left, margin, padding: animate transform/opacity instead). Warnings only: judgement applies.
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -58,6 +59,11 @@ function check(decl, stack, line, report) {
   if (p === "transform" && /:hover/.test(selector) && !inHoverMedia && !/translate(X|Y)?\(0|none/.test(value))
     report("hover-touch", `"${selector}" moves on hover outside @media (hover: hover) and (pointer: fine)`, line);
   if (p === "transform" && /scale\(\s*0\s*\)/.test(value)) report("scale-0", `"${decl}": start from scale(0.95) with opacity 0`, line);
+  // Emil Kowalski's animation-performance: layout properties re-measure the page every frame; transform/opacity don't
+  if (p === "transition" || p === "transition-property") {
+    const layout = value.split(",").map((t) => t.trim().split(/\s+/)[0]).find((x) => /^(width|height|min-|max-|top|left|right|bottom|inset|margin|padding|border-width|font-size|gap)/.test(x));
+    if (layout) report("layout-prop", `"${decl}": ${layout} triggers layout every frame; use transform (scale/translate) or opacity`, line);
+  }
 }
 
 for (const f of findings) console.log(`warn  ${f.rule}: ${f.file}:${f.line}  ${f.msg}`);

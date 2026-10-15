@@ -2,7 +2,8 @@
 // Deterministic UI checks for every state at every viewport. No model involved; same input, same report.
 //   node audit.mjs <states.mjs> [--only name,name] [--json <file>]
 // Checks: axe-core WCAG 2.2 A/AA rules · horizontal page overflow · tap targets under 24px (WCAG 2.5.8, touch viewports)
-//         · keyboard focus with no visible indicator · console errors. Exit code 1 if anything blocking is found.
+//         · keyboard focus with no visible indicator · console errors · zoom locked in the viewport meta · (touch) text
+//         fields under 16px, which iPhone zooms into. Exit code 1 if anything blocking is found.
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
@@ -51,13 +52,24 @@ for (const vp of viewports) {
       });
       if (over) add("block", "overflow", over);
 
-      // 3. tap targets on touch screens (inline links inside sentences are exempt, as in WCAG 2.5.8)
+      // 3. tap targets on touch screens (inline links inside sentences are exempt, as in WCAG 2.5.8, and so is a
+      //    checkbox or radio whose label is itself a big enough target: the "equivalent control" exception)
       if (vp.hasTouch) {
         const small = await page.evaluate(() => [...document.querySelectorAll("a[href], button, input, select, textarea, [role=button], [tabindex]:not([tabindex='-1'])")]
-          .filter((e) => { const r = e.getBoundingClientRect(), s = getComputedStyle(e); return r.width && r.height && s.visibility !== "hidden" && (r.width < 24 || r.height < 24) && !(e.tagName === "A" && e.closest("p, li")); })
+          .filter((e) => { const r = e.getBoundingClientRect(), s = getComputedStyle(e), l = e.matches("[type=checkbox], [type=radio]") && e.closest("label")?.getBoundingClientRect();
+            return r.width && r.height && s.visibility !== "hidden" && (r.width < 24 || r.height < 24) && !(e.tagName === "A" && e.closest("p, li")) && !(l && l.width >= 24 && l.height >= 24); })
           .map((e) => `${(e.getAttribute("aria-label") || e.textContent || e.tagName).trim().slice(0, 30)} ${Math.round(e.getBoundingClientRect().width)}×${Math.round(e.getBoundingClientRect().height)}`));
         if (small.length) add("warn", "tap-target", `${small.length} under 24px: ${[...new Set(small)].slice(0, 6).join(" ; ")}`);
+        // iOS Safari zooms into a focused field under 16px and doesn't zoom back (Emil Kowalski's mobile-native)
+        const tiny = await page.evaluate(() => [...document.querySelectorAll("input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea")]
+          .filter((e) => e.getBoundingClientRect().width && parseFloat(getComputedStyle(e).fontSize) < 16)
+          .map((e) => `${e.id ? "#" + e.id : e.tagName.toLowerCase()} ${getComputedStyle(e).fontSize}`));
+        if (tiny.length) add("warn", "input-zoom", `${tiny.length} field(s) under 16px zoom the page on iPhone: ${[...new Set(tiny)].slice(0, 5).join(" ; ")}`);
       }
+
+      // 3b. pinch zoom must stay available (WCAG 1.4.4): fix input sizes instead of locking the viewport
+      const vpMeta = await page.evaluate(() => document.querySelector('meta[name="viewport"]')?.content || "");
+      if (/user-scalable\s*=\s*(no|0)|maximum-scale\s*=\s*1(\.0*)?\b/i.test(vpMeta)) add("block", "zoom-locked", `viewport meta disables zoom: "${vpMeta}"`);
 
       // 4. keyboard focus must be visible: Tab through the first 30 stops (desktop only)
       if (!vp.hasTouch) {
