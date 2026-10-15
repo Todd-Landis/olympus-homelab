@@ -1,6 +1,6 @@
 # Handoff: olympus-homelab
 
-Last updated 2026-10-15 (design refresh; see `docs/design-log.md`). Read `README.md` for the repo layout and `docs/NETWORK.md` for the home network.
+Last updated 2026-10-15 (design refresh shipped from the Mac; see `docs/design-log.md`). Read `README.md` for the repo layout and `docs/NETWORK.md` for the home network.
 This file is the current state, what changed recently, open items, how to work here, and traps already hit.
 
 ## What exists now
@@ -12,7 +12,7 @@ This file is the current state, what changed recently, open items, how to work h
 | helios | 100.88.170.59 | 192.168.50.3 (reserved, Wi-Fi 5016Shoreside 2.4 GHz) | Ubuntu laptop server. Also runs `/opt/ai-stack` (NOT in this repo; see `~/handoff/HANDOFF.md` on helios) |
 | horae | 100.123.23.100 | 192.168.50.2 (reserved, Ethernet) | Raspberry Pi 4, Pi OS Lite (trixie, cloud-init). Renamed from `pihub` |
 | hephaestus | 100.102.134.107 | 192.168.50.5 (reserved, Wi-Fi 5016Shoreside 5 GHz, Wi-Fi 7) | Tower, dual boot; a server only in Ubuntu. Olympus agent reports |
-| Todd's Mac | `tailscale ip -4` on it | automatic | Todd's laptop since 2026-10-15; deploys run from here. helios trusts its SSH key; **horae doesn't yet** (open item 4) |
+| todd-macbook-pro | 100.115.118.44 | automatic | Todd's Mac, his laptop since 2026-10-15; deploys run from here. helios and horae trust its SSH key (`~/.ssh/id_ed25519`) |
 | iphone181 | 100.110.215.44 | automatic | Todd's iPhone, on 5016Shoreside |
 
 The old Windows laptop (`desktop-ajq2ikv`, 100.73.62.100) was **wiped and given away** (2026-10-15). It can't be used for
@@ -52,6 +52,21 @@ dropped on 2026-10-15). `Ctrl K` search in all three apps. Home Assistant has a 
 **rejected** a heavily themed version (temples/stamps/"Oracle" wording) as an art project; keep it subtle, modern and
 readable. No dark mode.
 
+## Changes on 2026-10-15
+
+1. **horae trusts the Mac.** With no password login and no key on helios for horae, the key went in through the SD card:
+   a `bootcmd` appended to `user-data` on the card's FAT boot partition (`/boot/firmware/user-data` on the Pi) adds the
+   Mac's key (comment `todd-mac`) to synestri's `authorized_keys` at every boot if it's missing. The pre-change copy is
+   `/boot/firmware/user-data.bak-20261015`. To keep the Mac online while the Pi was off: Tailscale off and Wi-Fi DNS
+   1.1.1.1 (both undone afterwards).
+2. **Design refresh shipped**: `./deploy.sh olympus`, `netwatch`, `horae-theme`, `horae-ha`, and `horae-stack` (the live
+   `/opt/pihub/docker-compose.yml` was missing the `FTLCONF_webserver_interface_theme: "default-light"` line, so
+   `docker compose up -d pihole` alone would have changed nothing). Todd ran `ha-theme.sh` (configuration.yaml backup
+   `/opt/pihub/homeassistant/configuration.yaml.bak-20261015-130424`) and recreated Pi-hole. Served CSS checked
+   against the repo on all three dashboards.
+3. **Network Watch can't show full URLs**, only domains: it's built on DNS, and paths travel inside HTTPS. Getting them
+   would take a TLS-intercepting proxy; Todd was told why that's not recommended here.
+
 ## Changes on 2026-10-09
 
 1. **Router swap: Spectrum router -> ASUS RT-BE58U** (details: `docs/NETWORK.md`).
@@ -90,13 +105,13 @@ readable. No dark mode.
    If it fails, read `journalctl -u dragonwilds` around the attempt.
 2. **Exit node from away**: try it on the iPhone off home Wi-Fi; https://ifconfig.me should show the home IP.
 3. **todd-desktop** (and other PCs) -> 5016Shoreside when convenient. iPhone: confirm Configure DNS = Automatic.
-4. **Design refresh (2026-10-15) to ship**, from the Mac. First horae has to trust the Mac's key, and only someone at the Pi can
-   add it (passwords are off, and helios has no key for horae): keyboard + micro-HDMI screen on the Pi, log in as synestri, append
-   the Mac's `~/.ssh/id_ed25519.pub` line to `~/.ssh/authorized_keys`. Then `./deploy.sh olympus`, `./deploy.sh netwatch`, `./deploy.sh horae-theme`, `./deploy.sh horae-ha`
-   + `sudo bash ~/olympus-ha/ha-theme.sh` on horae, then pick Olympus as HA's theme; apply the stack for Pi-hole's light
-   theme (`sudo bash -c 'cd /opt/pihub && docker compose up -d pihole'`). Check Horae (Homepage) in a browser: its overrides
-   can't be tested locally.
-5. **Home Assistant**: account + Matter integration (`ws://localhost:5580/ws`) and sharing Apple Home devices (Turn On Pairing
+4. **Design refresh (2026-10-15) follow-ups** (it's deployed): Todd looked at all four sites and found nothing broken, though
+   the change felt subtle to him (a hard refresh, ⌘⇧R, rules out cached CSS). Still open from `docs/design-log.md`: HA
+   variables that stay default-coloured, a real iPhone pass, raw errors in the status banner. Optional: make Olympus HA's
+   default theme on every device (Developer tools > Actions > "Frontend: Set the default theme").
+5. **Home Assistant**: the account exists (onboarding done; one user, `talandis`; if the password is forgotten, Todd resets it on
+   horae with `docker exec homeassistant python -m homeassistant --script auth --config /config change_password talandis …`
+   and restarts HA). Matter integration (`ws://localhost:5580/ws`) and sharing Apple Home devices (Turn On Pairing
    Mode -> code -> HA) still to check/finish. Then a long-lived token for an HA widget; Todd saves it on the server himself.
 6. **Unidentified devices** in Network (`Device ·16:0c`, `Device ·5e:c5`, `Device ·5a:4e`, `virtual interface ·00:00`, the TP-Link /
    Espressif / AMPAK / Logitech ones): name them by MAC (Olympus Dashboard or `names.json`) once Todd knows what they are.
@@ -195,6 +210,13 @@ Done today (details above): router move, Dragonwilds forwards, history clean-up,
 - A public IP change needs `sudo systemctl restart dragonwilds` so the in-game browser advertises the new address.
 - Shell one-liners with nested quotes over SSH broke several times (perl/sed/python): write a script file, `scp`, run it.
 - The file tools need a real Read before Write; viewing a file through the shell doesn't count.
+- **Tailscale on the Mac**: the menu-bar toggle kept flipping back to off (2026-10-15). `tailscale up --accept-routes` from the
+  CLI (`/Applications/Tailscale.app/Contents/MacOS/Tailscale`) connected it; plain `tailscale up` refuses without that flag.
+  Check with `tailscale status`, not the menu. horae still resolves over the LAN through Pi-hole when Tailscale is off, helios doesn't.
+- **horae is DNS for everything** (home DHCP and Tailscale's DNS): before powering it off, turn Tailscale off and set the Mac's
+  Wi-Fi DNS to 1.1.1.1 (or use the iPhone hotspot), and undo both afterwards.
+- `/boot/firmware/user-data` has a password hash: grep/tail only, never print it whole. It has one top-level `bootcmd:`;
+  add new entries under it rather than a second `bootcmd:` key.
 
 ## Backups
 
