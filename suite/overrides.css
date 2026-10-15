@@ -1,18 +1,24 @@
-/* ---- horae (Homepage) overrides: match the suite's light, quiet look ---- */
-html, body { background: var(--bg) !important; color-scheme: light; }
+/* ---- horae (Homepage) overrides: Homepage's own markup, dressed in the suite's tokens (rules: docs/DESIGN.md) ---- */
+html, body { background-color: var(--bg) !important; color-scheme: light; }
 body { color: var(--text) !important; font-family: var(--sans) !important; }
 #__next, #page_wrapper, #inner_wrapper { background: transparent !important; }
 #inner_wrapper { max-width: 1200px; margin: 0 auto; }
-#information-widgets { border: 1px solid var(--border) !important; border-radius: var(--radius); background: var(--surface) !important; box-shadow: var(--shadow); margin: 4px 24px 6px !important; }
+#information-widgets { border: 0 !important; border-radius: var(--radius); background: var(--surface) !important; box-shadow: var(--shadow); margin: 4px 24px 6px !important; }
 #information-widgets, #information-widgets * { color: var(--text-2) !important; }
-.service-group-name { font: 600 15px var(--sans) !important; color: var(--text) !important; text-transform: none !important; letter-spacing: 0 !important; }
-.service-card { background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: var(--radius) !important; box-shadow: var(--shadow) !important;
-  color: var(--text) !important; transition: box-shadow .15s, border-color .15s !important; }
-.service-card:hover { box-shadow: var(--shadow-hover) !important; border-color: var(--border-strong) !important; }
+.service-group-name { font: 600 15px var(--sans) !important; letter-spacing: -.006em !important; color: var(--text) !important; text-transform: none !important; }
+.service-card { background: var(--surface) !important; border: 0 !important; border-radius: var(--radius) !important; box-shadow: var(--shadow) !important;
+  color: var(--text) !important; transition: box-shadow 150ms ease, transform 160ms var(--ease-out) !important; }
+.service-card:active { transform: scale(0.99); }
 .service-name { font: 500 14.5px var(--sans) !important; color: var(--text) !important; }
 .service-description { color: var(--muted) !important; }
-.service-block { background: var(--surface-2) !important; border: 1px solid var(--border) !important; border-radius: 8px !important; color: var(--text) !important; }
-.service-block * { color: var(--text) !important; }
-.service-block div:last-child { font: 500 11px var(--sans) !important; color: var(--muted) !important; text-transform: none !important; }
-#footer, #version, #revalidate { opacity: .5; }
-#information-widgets input, #information-widgets [role=combobox] { background: var(--surface) !important; border: 1px solid var(--border-strong) !important; border-radius: 8px !important; }
+.service-block { background: var(--surface-2) !important; border: 0 !important; box-shadow: inset 0 0 0 1px var(--line) !important; border-radius: 8px !important; color: var(--text) !important; }
+.service-block * { color: var(--text) !important; font-variant-numeric: tabular-nums; }
+.service-block div:last-child { font: 500 11.5px var(--sans) !important; color: var(--muted) !important; text-transform: none !important; letter-spacing: 0 !important; }
+#footer, #version, #revalidate { opacity: .6; }
+#information-widgets input, #information-widgets [role=combobox] { background: var(--surface) !important; border: 0 !important; box-shadow: 0 0 0 1px var(--line-strong) !important; border-radius: 8px !important; }
+@media (hover: hover) and (pointer: fine) {
+  .service-card:hover { box-shadow: var(--shadow-hover) !important; }
+}
+@media (max-width: 760px) {
+  #information-widgets { margin: 4px 16px 6px !important; }
+}

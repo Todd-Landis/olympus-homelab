@@ -1,6 +1,6 @@
 # Handoff: olympus-homelab
 
-Last updated 2026-10-09 (late evening). Read `README.md` for the repo layout and `docs/NETWORK.md` for the home network.
+Last updated 2026-10-15 (design refresh; see `docs/design-log.md`). Read `README.md` for the repo layout and `docs/NETWORK.md` for the home network.
 This file is the current state, what changed recently, open items, how to work here, and traps already hit.
 
 ## What exists now
@@ -39,10 +39,14 @@ knows it (IP otherwise), so a name doesn't drift to another device when automati
 **Wi-Fi per device** (`~/pihole-watch/data/wifi.json`, copy in `pihole-watch/wifi.example.json`): `wl0.1`/`wl1.1` = 5016Shoreside,
 `wl0.2`/`wl1.2` = SpectrumSetup-DB35 (IoT), `192.168.50.2` = Wired. Devices show their network after they next (re)connect.
 
-**Design** (`suite/`): light only, warm off-white, Inter, Fraunces only for the "Olympus" wordmark, plain labels, thin borders,
-one terracotta accent, per-host colors (helios ochre, horae laurel, hephaestus terracotta), tiny sun arc by the clock,
-`Ctrl K` search in all three apps. Todd **rejected** a heavily themed version (temples/stamps/"Oracle" wording) as an
-art project; keep it subtle, modern and readable. No dark mode.
+**Design** (rulebook: `docs/DESIGN.md`, shared code: `suite/`): light only, marble page, white cards edged by light
+rather than borders, ink text, one Aegean-blue accent, Inter. Four quiet classical nods only: the inscribed "OLYMPUS"
+wordmark with a temple-front mark, a mark per machine (helios sun, horae hourglass, hephaestus anvil), the sun arc by the
+clock, and a faint daylight glow that follows the real sun. Status colours mean status only (per-host colours were
+dropped on 2026-10-15). `Ctrl K` search in all three apps. Home Assistant has a matching **Olympus** theme
+(`./deploy.sh horae-ha`, then `sudo bash ~/olympus-ha/ha-theme.sh` on horae); Pi-hole uses `default-light`. Todd
+**rejected** a heavily themed version (temples/stamps/"Oracle" wording) as an art project; keep it subtle, modern and
+readable. No dark mode.
 
 ## Changes on 2026-10-09
 
@@ -82,13 +86,17 @@ art project; keep it subtle, modern and readable. No dark mode.
    If it fails, read `journalctl -u dragonwilds` around the attempt.
 2. **Exit node from away**: try it on the iPhone off home Wi-Fi; https://ifconfig.me should show the home IP.
 3. **todd-desktop** (and other PCs) -> 5016Shoreside when convenient. iPhone: confirm Configure DNS = Automatic.
-4. **Home Assistant**: account + Matter integration (`ws://localhost:5580/ws`) and sharing Apple Home devices (Turn On Pairing
+4. **Design refresh (2026-10-15) to ship**: `./deploy.sh olympus`, `./deploy.sh netwatch`, `./deploy.sh horae-theme`, `./deploy.sh horae-ha`
+   + `sudo bash ~/olympus-ha/ha-theme.sh` on horae, then pick Olympus as HA's theme; apply the stack for Pi-hole's light
+   theme (`sudo bash -c 'cd /opt/pihub && docker compose up -d pihole'`). Check Horae (Homepage) in a browser: its overrides
+   can't be tested locally.
+5. **Home Assistant**: account + Matter integration (`ws://localhost:5580/ws`) and sharing Apple Home devices (Turn On Pairing
    Mode -> code -> HA) still to check/finish. Then a long-lived token for an HA widget; Todd saves it on the server himself.
-5. **Unidentified devices** in Network (`Device ·16:0c`, `Device ·5e:c5`, `Device ·5a:4e`, `virtual interface ·00:00`, the TP-Link /
+6. **Unidentified devices** in Network (`Device ·16:0c`, `Device ·5e:c5`, `Device ·5a:4e`, `virtual interface ·00:00`, the TP-Link /
    Espressif / AMPAK / Logitech ones): name them by MAC (Olympus Dashboard or `names.json`) once Todd knows what they are.
-6. **Wi-Fi column** fills in as devices reconnect (joins right after the router reboot weren't logged).
-7. `horae.local` resolves only partly on this PC (mDNS); use `horae` or `horae.home`.
-8. Possible: login on Olympus/Network if the tailnet is ever shared. Network logs **everyone's** browsing at home
+7. **Wi-Fi column** fills in as devices reconnect (joins right after the router reboot weren't logged).
+8. `horae.local` resolves only partly on this PC (mDNS); use `horae` or `horae.home`.
+9. Possible: login on Olympus/Network if the tailnet is ever shared. Network logs **everyone's** browsing at home
    (e.g. Connor's S24, guests); Todd was told it's fair to let household members know.
 
 Done today (details above): router move, Dragonwilds forwards, history clean-up, Odysseus auto-start, branch merge +

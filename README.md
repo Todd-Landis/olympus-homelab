@@ -20,8 +20,10 @@ Network (addresses, DNS, port forwards, moving a server's Wi-Fi): see [`docs/NET
 | Pi-hole admin | http://horae:8080/admin | `horae/stack/` |
 | Home Assistant | http://horae:8123 | `horae/stack/` |
 
-All three dashboards share one look from `suite/` (light, Inter, `Ctrl K` search). Edit it there and deploy;
-`deploy.sh` copies it into each app (and bundles it into Homepage's `custom.css`/`custom.js` for horae).
+Every site follows one rulebook, [`docs/DESIGN.md`](docs/DESIGN.md) (light, marble and ink, one Aegean accent, Inter,
+`Ctrl K` search). The three dashboards share `suite/`: edit it there and deploy; `deploy.sh` copies it into each app (and
+bundles it into Homepage's `custom.css`/`custom.js` for horae). Home Assistant gets the matching **Olympus** theme
+(`horae/homeassistant/`), Pi-hole its built-in light theme.
 
 ## Layout
 
@@ -33,12 +35,15 @@ pihole-watch/       Network Watch: syncs Pi-hole's query log into SQLite, serves
 suite/              shared CSS/JS (+ horae-specific overrides.css / mount.js); vendor/ = ECharts
 horae/
   scripts/          pi-setup.sh (stack install), pi-extras.sh (logs, backups, Tailscale),
-                    pihole-hostnet.sh, exit-node.sh, rename-horae.sh, matter-setup.sh
+                    pihole-hostnet.sh, exit-node.sh, rename-horae.sh, matter-setup.sh, ha-theme.sh
   stack/            /opt/pihub/docker-compose.yml (Pi-hole, Home Assistant, Matter server, Homepage)
   homepage/         Homepage config (services, widgets, settings)
+  homeassistant/    Olympus theme for Home Assistant (themes/olympus.yaml, www/olympus/fonts.js)
   first-boot/       cloud-init templates for re-flashing the SD card (placeholders only)
 dev/                run everything locally against fake machines (dev/stack.sh), UI check tooling (dev/ui/)
-.claude/skills/     design skills: olympus-design, ui-audit, ui-critique, ui-polish, emil-design-eng (see docs/DESIGN.md)
+.claude/skills/     design skills: olympus-design, ui-audit, ui-critique, ui-polish, and Emil Kowalski's emil-design-eng,
+                    animate, review-animations, find-animation-opportunities, animation-performance, apple-design,
+                    mobile-native, break-ui (vendored, MIT; see docs/DESIGN.md)
 deploy.sh           push changes to the servers
 ```
 
@@ -50,6 +55,7 @@ deploy.sh           push changes to the servers
 ./deploy.sh horae-agent   # Olympus agent on horae
 ./deploy.sh horae-stack   # /opt/pihub compose (Pi-hole, HA, Matter) + matter-setup.sh
 ./deploy.sh horae-theme   # Homepage theme + config on horae
+./deploy.sh horae-ha      # Home Assistant theme files to horae; then on horae: sudo bash ~/olympus-ha/ha-theme.sh
 ./deploy.sh hephaestus-agent  # Olympus agent on hephaestus (only while it's in Ubuntu; not in "all")
 ./deploy.sh all
 ```

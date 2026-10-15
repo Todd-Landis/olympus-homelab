@@ -4,43 +4,51 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light">
-<meta name="theme-color" content="#f6f4ef">
+<meta name="theme-color" content="#f5f5f2">
 <title>Network · Olympus</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='3' y='3' width='26' height='26' rx='8' fill='%231d1c1a'/><circle cx='16' cy='16' r='6.5' fill='none' stroke='%23f6f4ef' stroke-width='2'/><path d='M9.5 16h13M16 9.5c2.5 3 2.5 10 0 13M16 9.5c-2.5 3-2.5 10 0 13' stroke='%23f6f4ef' stroke-width='1.6' fill='none'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='3' y='3' width='26' height='26' rx='8' fill='%2317181b'/><circle cx='16' cy='16' r='6.5' fill='none' stroke='%23f5f5f2' stroke-width='2'/><path d='M9.5 16h13M16 9.5c2.5 3 2.5 10 0 13M16 9.5c-2.5 3-2.5 10 0 13' stroke='%23f5f5f2' stroke-width='1.6' fill='none'/></svg>">
 <link rel="stylesheet" href="/suite.css">
 <style>
   .desk { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: center; }
   .desk .status { font-size: 13px; color: var(--muted); margin-right: auto; }
   .desk .status.err { color: var(--bad-ink); }
-  .tabs { display: flex; gap: 22px; margin: 16px 0 18px; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
-  .tabs button { font: 500 14px var(--sans); color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent; padding: 8px 0 10px; cursor: pointer; white-space: nowrap; margin-bottom: -1px; }
-  .tabs button:hover { color: var(--text); }
-  .tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+  .tabs { display: flex; gap: 22px; margin: 16px 0 18px; box-shadow: inset 0 -1px var(--line); overflow-x: auto; scrollbar-width: none; }
+  .tabs button { font: 500 14px var(--sans); color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent; padding: 8px 0 10px; cursor: pointer; white-space: nowrap; transition: color 150ms ease; }
+  .tabs button.on { color: var(--text); border-bottom-color: var(--text); }
   .tabs button kbd { margin-left: 6px; font-size: 10px; padding: 0 4px; }
   .plaques { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
   .plaque { padding: 14px 16px; }
   .plaque .l { font-size: 12.5px; color: var(--muted); }
-  .plaque .n { font: 600 26px/1.2 var(--sans); letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin-top: 2px; }
-  .plaque .n small { font: 500 14px var(--sans); color: var(--muted); }
-  h3.t { font: 600 15px var(--sans); margin: 26px 0 10px; display: flex; gap: 8px; align-items: baseline; }
-  h3.t small { font: 400 13px var(--sans); color: var(--muted); }
+  .plaque .n { font: 600 26px/1.2 var(--sans); letter-spacing: -.022em; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .plaque .n small { font: 500 14px var(--sans); color: var(--muted); letter-spacing: 0; }
+  h3.t { font: 600 15px var(--sans); letter-spacing: -.006em; margin: 28px 0 10px; display: flex; gap: 8px; align-items: baseline; }
+  h3.t small { font: 400 13px var(--sans); color: var(--muted); letter-spacing: 0; }
   .chartcard { padding: 14px 14px 10px; }
-  .colbars { display: flex; align-items: flex-end; gap: 3px; height: 140px; }
-  .colbars .b { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; min-width: 3px; }
-  .colbars .q { background: #cfdde9; border-radius: 3px 3px 0 0; }
-  .colbars .x { background: var(--accent); opacity: .75; }
-  .colbars .b:hover .q { background: var(--aegean); }
-  .axis { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); margin-top: 6px; }
+  /* the shared chart palette: allowed = slot 1 blue, blocked = slot 2 orange stacked on top, a white gap between */
+  .colbars { display: flex; align-items: flex-end; justify-content: space-between; gap: 3px; height: 140px; }
+  .colbars .b { flex: 1; max-width: 24px; display: flex; flex-direction: column; justify-content: flex-end; gap: 1px; height: 100%; min-width: 3px; }
+  .colbars .q { background: #2a78d6; }
+  .colbars .x { background: #eb6834; }
+  .colbars .b > :first-child { border-radius: 3px 3px 0 0; }
+  .axis { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
   .legend { display: flex; gap: 16px; font-size: 12.5px; color: var(--muted); margin-top: 8px; }
   .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
   .two { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: start; }
   .tablecard { padding: 4px 8px; }
-  .site { font-weight: 500; word-break: break-all; }
-  .chipdev { display: inline-block; font: 500 11.5px var(--sans); padding: 1px 8px; border-radius: 99px; background: #f1ede5; color: var(--text-2); margin: 1px 3px 1px 0; white-space: nowrap; }
-  .day { font: 600 13px var(--sans); color: var(--muted); margin: 22px 0 6px; }
-  .when { font: 12.5px var(--mono); color: var(--muted); white-space: nowrap; width: 1%; }
-  .devrow .sub { font: 11.5px var(--mono); color: var(--muted); }
+  .site { font-weight: 500; overflow-wrap: anywhere; }
+  .chipdev { display: inline-block; font: 500 11.5px/1.6 var(--sans); padding: 0 8px; border-radius: 99px; background: var(--surface-3); color: var(--text-2); margin: 1px 3px 1px 0; white-space: nowrap; }
+  .day { font: 600 13px var(--sans); color: var(--text-2); margin: 24px 0 8px; }
+  .when { font: 13px var(--sans); font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; width: 1%; }
+  .devrow .sub { font: 11.5px var(--mono); color: var(--muted); overflow-wrap: anywhere; }
   .toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .leaders li[data-site] { cursor: pointer; }
+  @media (max-width: 760px) { .when { white-space: normal; width: auto; min-width: 84px; } }  /* the time wraps so the numbers keep their room */
+  @media (hover: hover) and (pointer: fine) {
+    .tabs button:hover { color: var(--text); }
+    .colbars .b:hover .q { background: #256abf; }
+    .colbars .b:hover .x { background: #d45a2a; }
+    .leaders li[data-site]:hover .name { color: var(--accent-ink); }
+  }
 </style>
 </head>
 <body>
@@ -65,7 +73,7 @@
   <main id="view"></main>
 </div>
 
-<div class="drawer" id="drawer"><div class="sheet" role="dialog" aria-label="Site details"><div class="sheet-head"><h3 id="sheet-title"></h3><span id="sheet-actions"></span><button class="x" data-close aria-label="Close">×</button></div><div class="sheet-body" id="sheet"></div></div></div>
+<div class="drawer" id="drawer"><div class="sheet" role="dialog" aria-label="Site details"><div class="sheet-head"><h3 id="sheet-title"></h3><span id="sheet-actions"></span><button class="x" data-close aria-label="Close">×</button></div><div class="sheet-body" id="sheet" tabindex="0" role="region" aria-label="Site details"></div></div></div>
 
 <script src="/suite.js"></script>
 <script>
@@ -113,7 +121,7 @@ const views = {
     const s = await api("/api/summary?" + qs());
     const max = Math.max(1, ...s.series.map((p) => p.queries));
     const bars = s.series.map((p) => `<div class="b" title="${fmtWhen(p.t)}: ${N(p.queries)} lookups, ${N(p.blocked)} blocked">
-        <div class="q" style="height:${((p.queries - p.blocked) / max * 100).toFixed(1)}%"></div>${p.blocked ? `<div class="x" style="height:${(p.blocked / max * 100).toFixed(1)}%"></div>` : ""}</div>`).join("");
+        ${p.blocked ? `<div class="x" style="height:${(p.blocked / max * 100).toFixed(1)}%"></div>` : ""}<div class="q" style="height:${((p.queries - p.blocked) / max * 100).toFixed(1)}%"></div></div>`).join("");
     const pct = s.queries ? Math.round(100 * s.blocked / s.queries) : 0;
     return `<div class="grid plaques">
         <div class="card plaque"><div class="l">Lookups</div><div class="n">${tw("q", s.queries)}</div></div>
@@ -123,14 +131,14 @@ const views = {
       <h3 class="t">Activity <small>${s.bucket === 3600 ? "per hour" : "per day"}</small></h3>
       <div class="card chartcard"><div class="colbars">${bars}</div>
         <div class="axis"><span>${s.series[0] ? fmtWhen(s.series[0].t) : ""}</span><span>${s.series.at(-1) ? fmtWhen(s.series.at(-1).t) : ""}</span></div>
-        <div class="legend"><span><i style="background:#cfdde9"></i>Allowed</span><span><i style="background:var(--accent);opacity:.75"></i>Blocked</span></div></div>
+        <div class="legend"><span><i style="background:#2a78d6"></i>Allowed</span><span><i style="background:#eb6834"></i>Blocked</span></div></div>
       <div class="two">
         <div><h3 class="t">Devices</h3>
           ${s.devices.length ? `<div class="card tablecard"><table class="ledger"><tr><th>Device</th><th class="hide-sm">Wi-Fi</th><th class="r">Lookups</th><th class="r">Blocked</th><th class="r">Last seen</th></tr>
           ${s.devices.map((d) => `<tr class="click devrow" data-device="${esc(d.name)}" title="Show ${esc(d.name)}'s timeline"><td><span class="site">${esc(d.name)}</span><div class="sub">${d.ips.map(esc).join(" · ")}</div></td>
-            <td class="hide-sm muted">${esc(d.wifi || "–")}</td><td class="r mono">${N(d.queries)}</td><td class="r mono">${N(d.blocked)}</td><td class="r muted">${ago(d.last)}</td></tr>`).join("")}</table></div>${lanInfo ? `<p class="muted" style="font-size:12.5px;margin:8px 2px 0">Home addresses in use: ${lanInfo.pool.in_use} of ${lanInfo.pool.size} (${Math.round(lanInfo.pool.pct)}%)${lanInfo.networks.length ? "" : " · Wi-Fi network shows once the router sends its log"}</p>` : ""}` : `<div class="empty">No devices in this range.</div>`}</div>
+            <td class="hide-sm muted">${esc(d.wifi || "–")}</td><td class="r num">${N(d.queries)}</td><td class="r num">${N(d.blocked)}</td><td class="r muted">${ago(d.last)}</td></tr>`).join("")}</table></div>${lanInfo ? `<p class="muted" style="font-size:12.5px;margin:8px 2px 0">Home addresses in use: ${lanInfo.pool.in_use} of ${lanInfo.pool.size} (${Math.round(lanInfo.pool.pct)}%)${lanInfo.networks.length ? "" : " · Wi-Fi network shows once the router sends its log"}</p>` : ""}` : `<div class="empty">No devices in this range.</div>`}</div>
         <div><h3 class="t">Top sites</h3>
-          ${s.top.length ? `<div class="card panel"><ul class="leaders">${s.top.map((t) => `<li data-site="${esc(t.base)}" style="cursor:pointer"><span class="name">${esc(t.base)}</span><span class="v">${N(t.n)}</span></li>`).join("")}</ul></div>` : `<div class="empty">Nothing yet.</div>`}</div>
+          ${s.top.length ? `<div class="card panel"><ul class="leaders">${s.top.map((t) => `<li data-site="${esc(t.base)}"><span class="name">${esc(t.base)}</span><span class="v">${N(t.n)}</span></li>`).join("")}</ul></div>` : `<div class="empty">Nothing yet.</div>`}</div>
       </div>`;
   },
   async sites() {
@@ -139,7 +147,7 @@ const views = {
       <input type="search" id="filter" placeholder="Filter sites…" style="flex:1;min-width:200px"></div>
       <div class="card tablecard"><table class="ledger" id="sitetable"><tr><th>Site</th><th class="hide-sm">Devices</th><th class="r">Lookups</th><th class="r">Last seen</th><th></th></tr>
       ${rows.map((r) => `<tr class="click" data-site="${esc(r.site)}"><td><span class="site">${esc(r.site)}</span>${r.blocked ? ` <span class="badge bad">${N(r.blocked)} blocked</span>` : ""}</td>
-        <td class="hide-sm">${pills(r.devices)}</td><td class="r mono">${N(r.queries)}</td><td class="r muted">${fmtWhen(r.last)}</td>
+        <td class="hide-sm">${pills(r.devices)}</td><td class="r num">${N(r.queries)}</td><td class="r muted">${fmtWhen(r.last)}</td>
         <td class="r"><button class="btn danger" data-block="${esc(r.site)}">Block</button></td></tr>`).join("")}</table>
       ${rows.length ? "" : `<div class="empty">No sites in this range.</div>`}</div>`;
   },
@@ -152,7 +160,7 @@ const views = {
       if (d !== day) { if (day) out += "</table></div>"; day = d; out += `<div class="day">${esc(d)}</div><div class="card tablecard"><table class="ledger">`; }
       out += `<tr class="click" data-site="${esc(v.site)}"><td class="when">${span(v.start, v.end)}</td>
         <td><span class="site">${esc(v.site)}</span>${v.blocked ? ` <span class="badge bad">blocked</span>` : ""}</td>
-        <td>${$("#device").value ? "" : `<span class="chipdev">${esc(v.device)}</span>`}</td><td class="r mono muted">${N(v.queries)}</td></tr>`;
+        <td>${$("#device").value ? "" : `<span class="chipdev">${esc(v.device)}</span>`}</td><td class="r num muted">${N(v.queries)}</td></tr>`;
     }
     return out + "</table></div>" + (visits.length >= 4000 ? `<p class="muted">Showing the latest 4,000 visits.</p>` : "");
   },
@@ -161,7 +169,7 @@ const views = {
     const why = (s) => ({ GRAVITY: "Blocklist", GRAVITY_CNAME: "Blocklist", REGEX: "Your rule", REGEX_CNAME: "Your rule", DENYLIST: "Your rule", DENYLIST_CNAME: "Your rule" }[s] || s);
     return rows.length ? `<div class="card tablecard"><table class="ledger"><tr><th>Domain</th><th>Device</th><th class="r">Attempts</th><th class="r">Last</th><th class="hide-sm">Reason</th></tr>
       ${rows.map((r) => `<tr class="click" data-site="${esc(r.base)}"><td class="site">${esc(r.domain)}</td><td><span class="chipdev">${esc(r.device)}</span></td>
-        <td class="r mono">${N(r.n)}</td><td class="r muted">${fmtWhen(r.last)}</td><td class="hide-sm"><span class="badge plain">${esc(why(r.status))}</span></td></tr>`).join("")}</table></div>`
+        <td class="r num">${N(r.n)}</td><td class="r muted">${fmtWhen(r.last)}</td><td class="hide-sm"><span class="badge plain">${esc(why(r.status))}</span></td></tr>`).join("")}</table></div>`
       : `<div class="empty">Nothing was blocked in this range.</div>`;
   },
   async blocklist() {
@@ -195,11 +203,11 @@ async function loadSite() {
     const html = `<h3 class="t" style="margin-top:0">Visits</h3>
       ${d.visits.length ? `<table class="ledger"><tr><th>When</th><th>Device</th><th class="r">Lookups</th></tr>
       ${d.visits.map((v) => `<tr><td class="when">${new Date(v.start * 1000).toLocaleDateString([], { month: "short", day: "numeric" })} · ${span(v.start, v.end)}</td>
-        <td><span class="chipdev">${esc(v.device)}</span>${v.blocked ? ` <span class="badge bad">blocked</span>` : ""}</td><td class="r mono">${N(v.queries)}</td></tr>`).join("")}</table>`
+        <td><span class="chipdev">${esc(v.device)}</span>${v.blocked ? ` <span class="badge bad">blocked</span>` : ""}</td><td class="r num">${N(v.queries)}</td></tr>`).join("")}</table>`
       : `<div class="empty">No visits in this range.</div>`}
       <h3 class="t">Addresses</h3>
       <table class="ledger">${d.subdomains.map((s) => `<tr><td class="site">${esc(s.domain)}${s.b ? ` <span class="badge bad">blocked</span>` : ""}</td>
-        <td class="r mono">${N(s.n)}</td><td class="r"><button class="btn danger" data-block="${esc(s.domain)}" data-scope="exact">Block</button></td></tr>`).join("")}</table>`;
+        <td class="r num">${N(s.n)}</td><td class="r"><button class="btn danger" data-block="${esc(s.domain)}" data-scope="exact">Block</button></td></tr>`).join("")}</table>`;
     if (html !== lastSheet) { const b = $("#sheet"), top = b.parentElement.scrollTop; b.innerHTML = html; b.parentElement.scrollTop = top; lastSheet = html; }
   } catch (e) { if (!lastSheet) $("#sheet").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
 }
@@ -271,7 +279,7 @@ document.addEventListener("click", (e) => {
 document.addEventListener("input", (e) => { if (e.target.id === "filter") applyFilter(); });
 document.addEventListener("keydown", (e) => {
   const typing = /input|textarea|select/i.test(document.activeElement?.tagName || "");
-  if (e.key === "Escape") closeSite();
+  if (e.key === "Escape" && openSiteName) Suite.instant($("#drawer"), closeSite);  // keyboard: no animation
   if (!typing && !e.ctrlKey && !e.metaKey && /^[1-5]$/.test(e.key) && !document.querySelector("#oracle.open")) setTab(TABS[+e.key - 1]);
 });
 ["#hours", "#device", "#wifi", "#noise"].forEach((s) => $(s).addEventListener("change", () => { savePrefs(); render(true); loadSite(); }));

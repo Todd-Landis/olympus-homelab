@@ -51,7 +51,20 @@ export const states = [
   },
   { name: "dashboard", url: O + "/#/dashboard", run: (p) => p.waitForSelector("#people-body tr[data-i]") },
   { name: "machine", url: O + "/#/host/helios", run: (p) => p.waitForSelector(".hero") },
+  {
+    name: "logs-drawer", url: O + "/#/host/helios",
+    run: async (p) => { await p.click("[data-logs]"); await p.waitForSelector("#logs .ts"); await p.waitForTimeout(400); },
+  },
+  {
+    name: "palette", url: O + "/#/dashboard",
+    run: async (p) => { await p.waitForSelector(".host"); await p.click("#oracle-open"); await p.keyboard.type("ho"); await p.waitForTimeout(400); },
+  },
   { name: "netwatch", url: N + "/" },
+  { name: "netwatch-sites", url: N + "/", run: async (p) => { await p.click("#tabs [data-tab=sites]"); await p.waitForSelector("#sitetable tr[data-site]"); } },
+  {
+    name: "netwatch-site", url: N + "/",
+    run: async (p) => { await p.click(".leaders li[data-site]"); await p.waitForSelector("#sheet .ledger"); await p.waitForTimeout(400); },
+  },
 ];
 
 // Stylesheets for the static motion check (ui-audit/scripts/motion-lint.mjs).

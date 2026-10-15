@@ -3,6 +3,52 @@
 Dated notes from `/ui-critique`, `/ui-audit` and `/ui-polish`: what was found, what changed, what was decided.
 Newest first. Read the last few entries before starting UI work so the same ground isn't covered twice.
 
+## 2026-10-15 — design refresh and the rulebook (all sites, Home Assistant included)
+
+Asked for: a better design built with Emil Kowalski's skills (github.com/emilkowalski/skills, 15 skills read; the
+eight that apply to plain web pages are now vendored in `.claude/skills/`), subtle nods to the theme, the same look
+on Home Assistant, and one rulebook for every internal site. `docs/DESIGN.md` is now that rulebook.
+
+**Resolves the open "reads as generated" decision** (2026-10-09, option c leaning on b): the cream page, Fraunces
+wordmark and terracotta accent are gone; mono is limited to machine strings; ALL-CAPS table group rows are sentence case.
+
+| Before | After | Why |
+| --- | --- | --- |
+| Cream `#f6f4ef` page, terracotta accent | Marble `#f5f5f2`, one Aegean blue accent (`#2a78d6`, text `#1b5fad`) | Off the generated-default palette; blue is the familiar "interactive" colour and equals chart slot 1 |
+| Solid 1px borders on cards, inputs, buttons | Translucent 1px ring + soft shadow (`--shadow`) | Emil: shadows over solid borders; one value reads right on any surface |
+| Fraunces "Olympus" wordmark | Temple-front mark + "OLYMPUS" in tracked Inter caps | The classical nod stays, the generic serif goes |
+| Per-host colours: ochre/laurel/terracotta top borders, meters, sparklines | A mark per machine (sun, hourglass, anvil); neutral ink meters, warn ≥ 75%, bad ≥ 90%; blue sparklines | helios' ochre meters read as warnings and horae's laurel as "OK": colour now means status only |
+| Static gold glow in the corner | Daylight that follows the real sun (moonlight at night), set once a minute | A quiet nod tied to something true; no motion |
+| Numbers in JetBrains Mono in tables and leaders | Inter with tabular figures; mono only for IPs, images, ports, logs | Mono labels were a generic tell and harder to read |
+| Hover rules ungated (`.btn:hover`, `.site:hover`, …) | All `:hover` inside `(hover: hover) and (pointer: fine)` | mobile-native: taps left hover stuck on iPhone |
+| Composer 15.5px, filters/editor 13.5px | 16px on touch screens | mobile-native: iPhone zoomed into the field and stayed zoomed |
+| Composer on a `box-shadow: 0 14px 0 var(--bg)` hack | A sticky dock with a scroll-edge fade; safe-area padding | apple-design: fade content under floating chrome instead of cutting it |
+| Drawer: keyframes in, `display: none` out | Transitions: in 250ms `--ease-drawer`, out 200ms the same way; Esc closes instantly | Interruptible, symmetric path, faster exit; keyboard actions never animate |
+| Card hover animated `box-shadow` | Hover shadow on a pseudo-element, fading `opacity` | animation-performance: box-shadow repaints every frame |
+| Field focus rings faded in over 150ms | Instant | Keyboard-driven; the audit also couldn't see a ring at focus time |
+| Toast hid after 2.8s even in a background tab | Its timer waits until the tab is visible | Sonner principle: handle edge cases invisibly |
+| `:focus-visible` set `border-radius: 6px` on whatever had focus | Outline only | Cards changed shape when focused |
+| Network Watch bars: pale blue + terracotta, blocked at the bottom, 45px wide | Chart palette (blue/orange), blocked on top, ≤ 24px, 1px white gap | Same rules as Olympus' charts |
+| Network Watch's blocked bars carried the close button's `.x` styles | `button.x` | Bug: the shared class padded every blocked bar |
+| Long times pushed the drawer's numbers off a phone screen | Times wrap on phones | break-ui: never truncate numbers |
+| Palette list: divs, not reachable by keyboard as a region | combobox + listbox + option groups | ARIA and axe |
+
+Also: Home Assistant **Olympus** theme (`horae/homeassistant/themes/olympus.yaml`, ~125 variables: surfaces, ink,
+accent, status, cards with the ring shadow, ink header/sidebar, chart palette, sun-gold "on" lights) with an installer
+that backs up and checks `configuration.yaml` (`horae/scripts/ha-theme.sh`; its YAML edit tested on six sample configs);
+Pi-hole set to `default-light`; Homepage overrides moved to the new tokens.
+
+Checks: `/ui-audit` 0 blocking across 17 states × 2 viewports (new states: logs drawer, palette, Network Watch sites
+and site drawer). `motion-lint` 0 warnings. New checks added: `motion-lint` warns on layout-property transitions
+(animation-performance); `/ui-audit` warns on touch fields under 16px and blocks a zoom-locked viewport
+(mobile-native), and lets a checkbox count its label as the tap target (WCAG 2.5.8 equivalent control).
+
+**Open:**
+1. Horae (Homepage) and Home Assistant can't run locally: look at both after deploying. HA variable names change
+   between releases; anything that stays default-coloured is a variable to add to the theme.
+2. Real iPhone pass: the dock over the keyboard, safe areas, press feedback (emulation can't show these).
+3. Raw errors in the status banner (`[Errno 111] Connection refused`) are still raw (low priority, from 2026-10-09).
+
 ## 2026-10-09 — Servers section (Dragonwilds)
 
 New `serverCard` on the Dashboard (between Machines and Services), on helios' machine page, and as a chat tile

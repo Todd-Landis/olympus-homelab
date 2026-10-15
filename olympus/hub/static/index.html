@@ -4,65 +4,68 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light">
-<meta name="theme-color" content="#f6f4ef">
+<meta name="theme-color" content="#f5f5f2">
 <title>Olympus</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='3' y='3' width='26' height='26' rx='8' fill='%231d1c1a'/><path d='M9 21h14M11 21v-7M16 21v-7M21 21v-7M9 13l7-4 7 4z' stroke='%23f6f4ef' stroke-width='2' fill='none' stroke-linejoin='round' stroke-linecap='round'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='3' y='3' width='26' height='26' rx='8' fill='%2317181b'/><path d='M9 22h14M11 20v-6M16 20v-6M21 20v-6M9 12l7-4 7 4z' stroke='%23f5f5f2' stroke-width='2' fill='none' stroke-linejoin='round' stroke-linecap='round'/></svg>">
 <link rel="stylesheet" href="/suite.css">
 <style>
   .banner { display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--text-2); }
-  .banner.trouble { padding: 12px 16px; border-color: #efd2cf; background: #fdf6f5; display: block; }
+  .banner.trouble { padding: 12px 16px; display: block; background: #fdf7f6; box-shadow: 0 0 0 1px rgba(201, 60, 55, .2), 0 1px 2px rgba(23, 24, 28, .04); }
   .banner.trouble b { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--bad-ink); }
   .banner ul { margin: 6px 0 0; padding-left: 24px; }
 
+  /* machines: the mark carries who it is; colour is kept for status */
   .hosts { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
-  .host { padding: 16px 18px 14px; border-top: 3px solid var(--hc, var(--border)); }
+  .host { padding: 16px 18px 14px; }
   .host-head { display: flex; align-items: flex-start; gap: 10px; }
-  .host-head h3 { margin: 0; font: 600 16px var(--sans); letter-spacing: -.01em; }
-  .host-head .role { font-size: 12.5px; color: var(--muted); }
+  .host-head > div { min-width: 0; }
+  .host-head h3 { margin: 0; display: flex; align-items: center; gap: 8px; font: 600 16px/1.3 var(--sans); letter-spacing: -.012em; }
+  .host-head h3 .mark { width: 17px; height: 17px; }
+  .host-head .role { font-size: 12.5px; color: var(--muted); margin-top: 1px; }
   .host-head .status-pill { margin-left: auto; }
   .spark { width: 100%; height: 40px; display: block; margin: 12px 0 8px; }
   .meters { display: grid; gap: 8px; }
   .meter { display: grid; grid-template-columns: 62px 1fr 44px; gap: 10px; align-items: center; font-size: 12.5px; }
   .meter .k { color: var(--muted); } .meter .v { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
-  .host-foot { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #f1ede5; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .host-foot { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .host-foot b { color: var(--text-2); font-weight: 500; }
-  .host.off { box-shadow: none; background: var(--surface-2); }
+  .host.off { box-shadow: var(--ring); background: var(--surface-2); }
+  .host.off .mark { color: var(--muted); }
   .host.off .note { font-size: 13px; color: var(--muted); margin-top: 10px; }
 
   .services { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
   /* game servers */
   .servers { grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); align-items: start; }  /* one server stays card-sized */
   .server .players { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 14px 0 10px; }
-  .server .players .n { font: 600 28px/1 var(--sans); letter-spacing: -.02em; }
+  .server .players .n { font: 600 28px/1 var(--sans); letter-spacing: -.022em; font-variant-numeric: tabular-nums; }
   .server .players .l { font-weight: 500; }
   .server .players .who { color: var(--muted); font-size: 13.5px; }
-  .server .note { margin-top: 10px; font-size: 13px; color: var(--warn-ink); background: var(--warn-soft); border-radius: 8px; padding: 6px 10px; }
-  .server .events { list-style: none; margin: 10px 0 0; padding: 8px 0 0; border-top: 1px solid #f1ede5; display: grid; gap: 3px; font-size: 13px; }
-  .server .events li { display: flex; gap: 8px; } .server .events .t { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .server .note { margin-top: 10px; font-size: 13px; color: var(--warn-ink); background: var(--warn-soft); border-radius: 8px; padding: 7px 10px; }
+  .server .events { list-style: none; margin: 10px 0 0; padding: 8px 0 0; border-top: 1px solid var(--line); display: grid; gap: 3px; font-size: 13px; }
+  .server .events li { display: flex; gap: 8px; } .server .events .t { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .svc { display: flex; align-items: center; gap: 12px; padding: 12px 14px; text-decoration: none; }
-  .svc .ic { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; font: 600 12px var(--sans); flex: none; color: var(--text-2); background: var(--surface-2); border: 1px solid var(--border); }
+  .svc .ic { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; font: 600 12px var(--sans); flex: none; color: var(--text-2); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
+  .svc > div { min-width: 0; }
   .svc .name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .svc .meta { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .svc .st { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font: 500 11.5px var(--mono); color: var(--muted); flex: none; }
-  .svc .st .arrow { font: 400 14px var(--sans); color: var(--muted); }
-  a.svc:hover .arrow { color: var(--accent); }
+  .svc .st { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font: 500 12px var(--sans); color: var(--muted); font-variant-numeric: tabular-nums; flex: none; white-space: nowrap; }
+  .svc .st .arrow { font: 400 14px var(--sans); color: var(--muted); transition: color 150ms ease; }
 
   .widgets { grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); align-items: start; }
   .widget { padding: 16px 18px; }
   .widget h4 { display: flex; align-items: baseline; gap: 8px; }
   .widget h4 a { margin-left: auto; font: 500 12.5px var(--sans); color: var(--accent-ink); text-decoration: none; padding: 5px 0; margin-block: -5px; }
-  .widget h4 a:hover { text-decoration: underline; }
   .bars { display: flex; align-items: flex-end; gap: 2px; height: 48px; margin: 14px 0 12px; }
-  .bars span { flex: 1; background: #d9e5ee; border-radius: 2px 2px 0 0; min-height: 2px; }
-  .bars span:last-child { background: var(--aegean); }
-  .model { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f1ede5; font-size: 13.5px; }
+  .bars span { flex: 1; background: #cfe0f5; border-radius: 2px 2px 0 0; min-height: 2px; }
+  .bars span:last-child { background: var(--accent); }
+  .model { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
   .model:last-child { border-bottom: 0; }
-  .model .what { margin-left: auto; color: var(--muted); font-size: 12.5px; }
+  .model .what { margin-left: auto; color: var(--muted); font-size: 12.5px; text-align: right; }
 
-  .back { font: 500 13px var(--sans); background: none; border: 0; cursor: pointer; padding: 4px 0; color: var(--muted); }
-  .back:hover { color: var(--text); }
-  .hero { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 10px 0 4px; padding-left: 12px; border-left: 3px solid var(--hc, var(--border)); }
-  .hero h1 { margin: 0; font: 600 26px var(--sans); letter-spacing: -.02em; }
+  .back { font: 500 13px var(--sans); background: none; border: 0; cursor: pointer; padding: 4px 0; color: var(--muted); transition: color 150ms ease; }
+  .hero { display: flex; align-items: baseline; gap: 6px 14px; flex-wrap: wrap; margin: 10px 0 4px; }
+  .hero h1 { margin: 0; display: flex; align-items: center; gap: 10px; font: 600 28px/1.15 var(--sans); letter-spacing: -.022em; }
+  .hero h1 .mark { width: 24px; height: 24px; stroke-width: 1.2; }
   .hero .role { color: var(--muted); }
   .stats { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-top: 18px; }
   .stat { padding: 14px 16px; }
@@ -75,36 +78,33 @@
   .chart .head b { color: var(--text); font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; }
   .two { grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); margin-top: 14px; align-items: start; }
   .disk { margin-bottom: 12px; } .disk:last-child { margin-bottom: 0; }
-  .disk .top { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; }
-  .disk .top span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .disk .top { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; margin-bottom: 5px; }
+  .disk .top span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .temps { display: flex; flex-wrap: wrap; gap: 8px; }
-  .temp { padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 12.5px; color: var(--muted); }
+  .temp { padding: 6px 10px; box-shadow: inset 0 0 0 1px var(--line); border-radius: 8px; font-size: 12.5px; color: var(--muted); }
   .temp b { color: var(--text); font-weight: 600; margin-left: 4px; font-variant-numeric: tabular-nums; }
   .cname { font-weight: 500; }
   .img { font: 11.5px var(--mono); color: var(--muted); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .btns { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
-  pre.logs { margin: 0; font: 12.5px/1.6 var(--mono); white-space: pre-wrap; word-break: break-word; color: var(--text); }
+  pre.logs { margin: 0; font: 12.5px/1.6 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text); }
   pre.logs.nowrap { white-space: pre; }
   pre.logs .ts { color: var(--muted); } pre.logs .err { color: var(--bad-ink); } pre.logs .wrn { color: var(--warn-ink); }
-  pre.logs mark { background: #f8e3b5; color: inherit; border-radius: 3px; }
+  pre.logs mark { background: #fbe7b0; color: inherit; border-radius: 3px; }
   ::view-transition-group(*) { animation-duration: 200ms; animation-timing-function: var(--ease-out); }
-  .tab, .site, .ask-hints button, .composer .btn { transition: transform 160ms var(--ease-out), background 150ms ease, border-color 150ms ease, color 150ms ease; }
+  .tab, .site, .ask-hints button, .composer .btn { transition: transform 160ms var(--ease-out), background-color 150ms ease, box-shadow 150ms ease, color 150ms ease; }
   .tab:active, .site:active, .ask-hints button:active { transform: scale(0.97); }
   /* a new reply and its tiles arrive with a short fade and rise (answers the person's question) */
   .turn .q, .reply, .tiles > * { transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out); }
   @starting-style { .turn .q, .reply, .tiles > * { opacity: 0; transform: translateY(4px); } }
   @media (prefers-reduced-motion: reduce) { @starting-style { .turn .q, .reply, .tiles > * { transform: none; } } .tab:active, .site:active, .ask-hints button:active { transform: none; } }
 
-
   /* tabs + links to every hosted site */
   .olnav { display: flex; align-items: center; gap: 16px; margin: -8px 0 18px; flex-wrap: wrap; }
-  .tabs { display: flex; gap: 2px; padding: 3px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; }
+  .tabs { display: flex; gap: 2px; padding: 3px; background: rgba(23, 24, 28, .045); border-radius: 10px; }
   .tab { text-decoration: none; font: 500 13.5px var(--sans); color: var(--text-2); padding: 6px 16px; border-radius: 7px; }
-  .tab:hover { color: var(--text); background: var(--surface); }
-  .tab[aria-current="page"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(40, 32, 20, .08); }
-  .sites { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin-left: auto; min-width: 0; }
-  .site { display: inline-flex; align-items: center; gap: 7px; flex: none; text-decoration: none; font: 500 12.5px var(--sans); color: var(--text-2); padding: 5px 11px; border: 1px solid var(--border); border-radius: 99px; background: var(--surface); }
-  .site:hover { border-color: var(--border-strong); color: var(--text); }
+  .tab[aria-current="page"] { background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px rgba(23, 24, 28, .06), 0 1px 2px rgba(23, 24, 28, .08); }
+  .sites { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin-left: auto; min-width: 0; padding: 2px; margin-block: -2px; }
+  .site { display: inline-flex; align-items: center; gap: 7px; flex: none; text-decoration: none; font: 500 12.5px var(--sans); color: var(--text-2); padding: 5px 11px; border-radius: 99px; background: var(--surface); box-shadow: 0 0 0 1px var(--line), 0 1px 1px rgba(23, 24, 28, .03); }
   .site .dot { width: 6px; height: 6px; }
   .site i { font-style: normal; color: var(--muted); }
 
@@ -112,68 +112,82 @@
   .chat { display: flex; flex-direction: column; min-height: calc(100dvh - 150px); }
   .chat[hidden], main[hidden], .people[hidden] { display: none; }
   .thread { flex: 1; display: grid; gap: 28px; align-content: start; grid-template-columns: minmax(0, 1fr); padding-bottom: 24px; }
-  .chat-empty { flex: 1; display: grid; place-content: center; text-align: center; padding: 6vh 0 4vh; }
+  .chat-empty { flex: 1; display: grid; place-content: center; justify-items: center; text-align: center; padding: 6vh 0 4vh; }
   .chat-empty[hidden] { display: none; }
-  .chat-empty h1 { margin: 0 0 6px; font: 600 26px var(--sans); letter-spacing: -.02em; }
-  .chat-empty p { margin: 0 0 18px; color: var(--muted); }
+  .chat-empty .mark { width: 28px; height: 28px; stroke-width: 1.1; color: var(--faint); margin-bottom: 14px; }
+  .chat-empty h1 { margin: 0 0 6px; font: 600 28px/1.15 var(--sans); letter-spacing: -.022em; }
+  .chat-empty p { margin: 0 0 20px; color: var(--muted); }
   .ask-hints { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 680px; }
-  .ask-hints button { font: 500 13px var(--sans); color: var(--text-2); background: var(--surface); border: 1px solid var(--border); border-radius: 99px; padding: 6px 12px; cursor: pointer; }
-  .ask-hints button:hover { border-color: var(--border-strong); color: var(--text); }
-  .composer { position: sticky; bottom: 14px; z-index: 5; display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 16px; box-shadow: 0 14px 0 var(--bg), var(--shadow-hover); }
-  .composer:focus-within { border-color: #9dbad1; box-shadow: 0 14px 0 var(--bg), 0 0 0 3px rgba(47, 111, 159, .14), var(--shadow-hover); }
-  .composer input { flex: 1; min-width: 0; border: 0; outline: none;  /* the whole bar shows focus instead */ background: none; font: 400 15.5px var(--sans); color: var(--text); padding: 9px 0; }
-  .composer input::placeholder { color: var(--faint); }
-  .composer select { font-size: 12.5px; padding: 5px 8px; max-width: 150px; }
-  .composer .btn.go { padding: 7px 16px; }
-  .composer-meta { display: flex; justify-content: flex-end; margin-top: 22px; min-height: 18px; }
+  .ask-hints button { font: 500 13px var(--sans); color: var(--text-2); background: var(--surface); border: 0; box-shadow: 0 0 0 1px var(--line), 0 1px 1px rgba(23, 24, 28, .03); border-radius: 99px; padding: 6px 12px; cursor: pointer; }
+  /* the composer sits in a dock pinned to the bottom; the thread fades out under it instead of being cut by a line */
+  .dock { position: sticky; bottom: 0; z-index: 5; margin-top: -8px; padding: 26px 0 calc(14px + env(safe-area-inset-bottom));
+    background: linear-gradient(to bottom, rgba(245, 245, 242, 0), var(--bg) 42%); pointer-events: none; }
+  .dock > * { pointer-events: auto; }
+  .composer { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 16px; box-shadow: var(--shadow-hover); }
+  .composer:focus-within { box-shadow: 0 0 0 1px rgba(42, 120, 214, .6), 0 0 0 4px rgba(42, 120, 214, .14), var(--shadow-hover); }
+  .composer input { flex: 1; min-width: 0; border: 0; outline: none;  /* the whole bar shows focus instead */ background: none; font: 400 16px var(--sans); color: var(--text); padding: 9px 0; }
+  .composer input::placeholder { color: var(--muted); opacity: .75; }
+  .composer select { font-size: 12.5px; padding: 5px 26px 5px 8px; background-position: right 9px center; max-width: 150px; }
+  .composer .btn.go { padding: 8px 16px; }
+  .composer-meta { display: flex; justify-content: flex-end; margin-top: 8px; min-height: 18px; }
   .composer-meta[hidden] { display: none; }
 
   .turn { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); scroll-margin-top: 16px; }
-  .turn .q { justify-self: end; max-width: min(80%, 640px); background: var(--accent-soft); border-radius: 14px 14px 4px 14px; padding: 9px 14px; font-weight: 500; color: var(--text); }
-  .reply { max-width: 760px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px 14px 14px 14px; padding: 14px 18px; box-shadow: var(--shadow); }
-  .reply .a { font-size: 15.5px; line-height: 1.6; color: var(--text); }
+  .turn .q { justify-self: end; max-width: min(80%, 640px); background: var(--accent-soft); border-radius: 16px 16px 6px 16px; padding: 9px 14px; font-weight: 500; color: var(--text); overflow-wrap: anywhere; }
+  .reply { max-width: 760px; background: var(--surface); border-radius: 6px 16px 16px 16px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .reply .a { font-size: 16px; line-height: 1.6; color: var(--text); text-wrap: pretty; }
   .reply .a:empty { display: none; }
   .reply .a p { margin: 0 0 8px; } .reply .a p:last-child { margin: 0; }
   .reply .a.err { color: var(--bad-ink); }
-  .reply .a code { font: .9em var(--mono); background: var(--surface-2); padding: 1px 4px; border-radius: 4px; }
+  .reply .a code { font: .88em var(--mono); background: var(--surface-3); padding: 1px 5px; border-radius: 5px; }
   .reply .note { font-size: 13.5px; color: var(--muted); margin-bottom: 8px; }
   .steps { display: flex; flex-wrap: wrap; gap: 6px; }
   .steps:empty { display: none; }
-  .reply .a:not(:empty) + .steps { margin-top: 12px; padding-top: 10px; border-top: 1px solid #f1ede5; }
-  .step { display: inline-flex; align-items: center; gap: 7px; font: 500 12px var(--sans); color: var(--muted); padding: 3px 10px; border: 1px solid var(--border); border-radius: 99px; background: var(--surface-2); }
-  .step.err { color: var(--bad-ink); border-color: #efd2cf; background: var(--bad-soft); }
+  .reply .a:not(:empty) + .steps { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .step { display: inline-flex; align-items: center; gap: 7px; font: 500 12px var(--sans); color: var(--muted); padding: 3px 10px; border-radius: 99px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
+  .step.err { color: var(--bad-ink); background: var(--bad-soft); box-shadow: inset 0 0 0 1px rgba(201, 60, 55, .2); }
   .step .dot { width: 6px; height: 6px; }
   .tiles { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
   .tiles:empty { display: none; }
   .tiles > *, .tiles .grid > * { min-width: 0; }
   .tile .scroll .ledger { min-width: 520px; }
   .tile { padding: 14px 16px; }
-  .tile h4 { margin: 0 0 10px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font: 600 13.5px var(--sans); }
+  .tile h4 { margin: 0 0 10px; display: flex; align-items: baseline; gap: 4px 8px; flex-wrap: wrap; font: 600 13.5px var(--sans); }
   .tile h4 small { font-weight: 400; color: var(--muted); }
   .tile h4 .acts { margin-left: auto; display: flex; gap: 12px; }
   .tile h4 .acts a, .tile h4 .acts button { font: 500 12.5px var(--sans); color: var(--accent-ink); text-decoration: none; background: none; border: 0; padding: 5px 2px; margin: -5px 0; cursor: pointer; }
   .tile .crumb { font: 500 12px var(--sans); color: var(--muted); margin-bottom: 4px; }
-  .tile .scroll { max-height: 360px; overflow: auto; margin-top: 10px; }
+  .tile .scroll { max-height: 360px; overflow: auto; overscroll-behavior: contain; margin-top: 10px; }
   .tile .viz { width: 100%; margin-top: 6px; overflow: hidden; }  /* tooltips are confined to the chart, so nothing useful is clipped */
   .tile .kpis { margin-bottom: 4px; }
-  .tile pre.logs { max-height: 340px; overflow: auto; }
+  .tile pre.logs { max-height: 340px; overflow: auto; overscroll-behavior: contain; }
   .tile.loading { opacity: .6; }
-  .nowrap { white-space: nowrap; } .brk { word-break: break-all; } .small { font-size: 12px; }
+  .nowrap { white-space: nowrap; } .brk { overflow-wrap: anywhere; } .small { font-size: 12px; }
 
   /* devices & people */
-  .people .ledger input { font: 400 13.5px var(--sans); color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 5px 8px; width: 100%; min-width: 120px; }
-  .people .ledger input:focus { border-color: var(--border-strong); }
+  .people .ledger input { font: 400 13.5px var(--sans); color: var(--text); background: var(--surface); border: 0; box-shadow: 0 0 0 1px var(--line-strong); border-radius: 7px; padding: 6px 8px; width: 100%; min-width: 120px; }
+  .people .ledger input:focus { outline: none; box-shadow: 0 0 0 1px var(--accent), 0 0 0 4px rgba(42, 120, 214, .16); }
   .people .ledger td { vertical-align: top; }
-  .people .ips { font: 11.5px var(--mono); color: var(--muted); margin-top: 3px; }
+  .people .ips { font: 11.5px var(--mono); color: var(--muted); margin-top: 4px; overflow-wrap: anywhere; }
   .people .who { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-  .people .who span { font: 500 12.5px var(--sans); padding: 3px 10px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2); }
+  .people .who span { font: 500 12.5px var(--sans); padding: 3px 10px; border-radius: 99px; background: var(--surface-3); color: var(--text-2); }
   .people .who b { font-weight: 600; color: var(--text); }
+
+  @media (hover: hover) and (pointer: fine) {
+    a.svc:hover .arrow { color: var(--accent-ink); }
+    .widget h4 a:hover, .tile h4 .acts a:hover, .tile h4 .acts button:hover { text-decoration: underline; text-underline-offset: 3px; }
+    .back:hover { color: var(--text); }
+    .tab:hover:not([aria-current]) { color: var(--text); background: rgba(255, 255, 255, .7); }
+    .site:hover, .ask-hints button:hover { color: var(--text); box-shadow: 0 0 0 1px rgba(23, 24, 28, .16), 0 1px 2px rgba(23, 24, 28, .06); }
+    .people .ledger input:hover:not(:focus) { box-shadow: 0 0 0 1px rgba(23, 24, 28, .24); }
+  }
   @media (max-width: 760px) {
     .olnav { margin-top: -4px; } .sites { margin-left: 0; width: 100%; }
     .composer select { max-width: 100px; }
     .people .hide-sm { display: none; }
     .people .ledger input { min-width: 0; }
     .people .ledger td, .people .ledger th { padding-left: 4px; padding-right: 4px; }
+    .hero h1 { font-size: 24px; }
   }
 </style>
 </head>
@@ -186,6 +200,7 @@
   </nav>
   <section class="chat" id="chat" aria-label="Ask about the home lab">
     <div class="chat-empty" id="chat-empty">
+      <svg class="mark" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6.4 8 3l6 3.4z"/><path d="M3.7 8.6v4.2M8 8.6v4.2M12.3 8.6v4.2M2 14.6h12"/></svg>
       <h1>Ask about the home lab</h1>
       <p>Machines, containers, logs, and every device's browsing for the last 30 days.</p>
       <div class="ask-hints" id="ask-hints">
@@ -198,11 +213,11 @@
       </div>
     </div>
     <div class="thread" id="ask-thread" aria-live="polite"></div>
-    <form class="card composer" id="ask-form" autocomplete="off">
-      <input id="ask-q" maxlength="2000" aria-label="Ask about the home lab" placeholder="Ask anything: “what has Sam been browsing tonight?”">
+    <div class="dock"><form class="card composer" id="ask-form" autocomplete="off">
+      <input id="ask-q" maxlength="2000" aria-label="Ask about the home lab" enterkeyhint="send" autocapitalize="sentences" placeholder="Ask anything: “what has Sam been browsing tonight?”">
       <select id="ask-backend" aria-label="Model"></select>
       <button class="btn go" id="ask-go">Ask</button>
-    </form>
+    </form></div>
     <div class="composer-meta" id="ask-meta" hidden><button class="back" id="ask-new" type="button">New conversation</button></div>
   </section>
   <main id="dash" hidden>
@@ -223,7 +238,7 @@
       <label class="chk"><input type="checkbox" id="log-wrap" checked> Wrap</label>
       <button class="x" data-close aria-label="Close">×</button>
     </div>
-    <div class="sheet-body" id="log-body"><pre class="logs" id="logs">Loading…</pre></div>
+    <div class="sheet-body" id="log-body" tabindex="0" role="region" aria-label="Log lines"><pre class="logs" id="logs">Loading…</pre></div>
   </div>
 </div>
 
@@ -241,7 +256,7 @@ function dur(s) { if (s == null) return "–"; const d = Math.floor(s / 86400), 
 function ago(t) { if (!t) return "never"; const s = Date.now() / 1000 - t; if (s < 60) return "just now"; if (s < 3600) return Math.round(s / 60) + " min ago"; if (s < 86400) return Math.round(s / 3600) + " h ago"; return Math.round(s / 86400) + " d ago"; }
 const C = (c) => `${Math.round(c)}°C`;
 const lvl = (p) => (p >= 90 ? "b" : p >= 75 ? "w" : "");
-const HOSTC = { helios: "#c98a12", horae: "#3f8a5a", hephaestus: "#c4552d" };
+const DATA = Viz.SERIES[0], DATA2 = Viz.SERIES[1];  // one data colour per chart; a second only when two series share it
 const tw = (key, v, fmt = "int") => `<span data-tw="${esc(key)}" data-v="${v}" data-fmt="${fmt}">${fmt === "pct" ? Math.round(v) + "%" : N(Math.round(v))}</span>`;
 let awayHosts = new Set();
 
@@ -258,20 +273,20 @@ const meter = (label, p, text) => `<div class="meter"><span class="k">${label}</
 
 // ------------------------------------------------------------------ overview
 function hostCard(h) {
-  const s = h.stats, color = HOSTC[h.name] || "var(--aegean)";
+  const s = h.stats, color = DATA;
   const st = h.online ? `<span class="status-pill"><span class="dot ok"></span>Up ${dur(s?.uptime)}</span>`
     : `<span class="status-pill"><span class="dot ${h.sometimes_off ? "off" : "bad"}"></span>${h.has_agent ? "Offline" : "No agent"}</span>`;
-  const head = `<div class="host-head"><div><h3 style="view-transition-name: host-${h.name}">${esc(h.label)}</h3><div class="role">${esc(h.role || "")}</div></div>${st}</div>`;
+  const head = `<div class="host-head"><div><h3 style="view-transition-name: host-${h.name}">${Suite.mark(h.name)}${esc(h.label)}</h3><div class="role">${esc(h.role || "")}</div></div>${st}</div>`;
   if (!h.online || !s) {
     const note = h.sometimes_off ? "Usually off or booted into Windows. Stats appear when it's running Ubuntu."
       : `Agent unreachable${h.error ? `: ${esc(h.error)}` : ""}. Last seen ${ago(h.last_seen)}.`;
-    return `<article class="card lift host off" data-host="${esc(h.name)}" style="--hc:${color}">${head}<div class="note">${note}</div></article>`;
+    return `<article class="card lift host off" data-host="${esc(h.name)}">${head}<div class="note">${note}</div></article>`;
   }
   const mem = s.memory, disk = s.disks[0], cpuT = s.temps.find((t) => t.name === "CPU");
   const foot = [cpuT ? `CPU <b>${C(cpuT.c)}</b>` : "", s.gpu?.temp != null ? `GPU <b>${C(s.gpu.temp)}</b>` : "",
     s.battery ? `${s.battery.ac ? "On power" : "On battery"} <b>${s.battery.percent ?? "?"}%</b>` : "",
     `↓ <b>${rate(s.net.rx)}</b> ↑ <b>${rate(s.net.tx)}</b>`, `<b>${h.containers_running}/${h.containers_total}</b> containers`].filter(Boolean);
-  return `<article class="card lift host" data-host="${esc(h.name)}" style="--hc:${color}" tabindex="0" aria-label="${esc(h.label)} details">${head}
+  return `<article class="card lift host" data-host="${esc(h.name)}" tabindex="0" aria-label="${esc(h.label)} details">${head}
     ${spark(h.spark, color)}
     <div class="meters">
       ${meter("CPU", s.cpu ?? 0, tw(h.name + "cpu", s.cpu ?? 0, "pct"))}
@@ -291,7 +306,7 @@ function svcTile(s) {
   return s.url ? `<a class="card lift svc" href="${esc(s.url)}" target="_blank" rel="noopener" title="Open ${esc(s.name)}">${inner}</a>` : `<div class="card svc" title="No web page">${inner}</div>`;
 }
 function serverCard(g) {
-  const color = HOSTC[g.host] || "var(--aegean)", now = Date.now() / 1000;
+  const color = DATA, now = Date.now() / 1000;
   const pill = g.running ? `<span class="status-pill"><span class="dot ok"></span>Up ${dur(g.started ? now - g.started : null)}</span>`
     : `<span class="status-pill"><span class="dot bad"></span>Stopped</span>`;
   const who = g.player_count ? g.players.map((p) => esc(p.name)).join(", ")
@@ -304,7 +319,7 @@ function serverCard(g) {
   const mismatch = g.mismatch && now - g.mismatch.t < 86400
     ? `<div class="note">A player on protocol ${g.mismatch.client} was turned away ${ago(g.mismatch.t)} (server is on ${g.mismatch.server}); the version watcher checks Steam for an update.</div>` : "";
   const events = (g.events || []).slice(-4).reverse().map((e) => `<li><span>${esc(e.player)} ${e.event}</span><span class="t">${esc(new Date(e.t * 1000).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" }))}</span></li>`).join("");
-  return `<article class="card host server" style="--hc:${color}" aria-label="${esc(g.name)} server">
+  return `<article class="card host server" aria-label="${esc(g.name)} server">
     <div class="host-head"><div><h3>${esc(g.name)}</h3><div class="role">${esc(g.game || "Game server")} · on ${esc(g.host_label || g.host)}</div></div>${pill}</div>
     <div class="players"><span class="n">${g.player_count}</span><span class="l">${g.player_count === 1 ? "player" : "players"} online</span><span class="who">${who}</span></div>
     ${g.running ? `${spark(hist, color)}<div class="meters">${meter("CPU", Math.min(100, g.cpu ?? 0), g.cpu != null ? Math.round(g.cpu) + "%" : "–")}
@@ -347,10 +362,10 @@ function overview(d) {
 function lineChart(hist, key, { max = 100, color, key2, color2 }) {
   const w = 600, h = 120, vals = hist.map((p) => p[key]), vals2 = key2 ? hist.map((p) => p[key2]) : [];
   const all = [...vals, ...vals2].filter((x) => x != null);
-  if (all.length < 2) return `<svg viewBox="0 0 ${w} ${h}" style="height:${h}px"><text x="0" y="64" font-size="13" fill="#a9a399">Collecting data…</text></svg>`;
+  if (all.length < 2) return `<svg viewBox="0 0 ${w} ${h}" style="height:${h}px"><text x="0" y="64" font-size="13" fill="#62656c">Collecting data…</text></svg>`;
   const m = Math.max(max ?? 0, ...all) || 1, step = w / Math.max(1, vals.length - 1);
   const pts = (vs) => vs.map((x, i) => `${(i * step).toFixed(1)},${(h - 2 - ((x ?? 0) / m) * (h - 8)).toFixed(1)}`).join(" ");
-  const grid = [0.25, 0.5, 0.75].map((f) => `<line x1="0" x2="${w}" y1="${(h * f).toFixed(0)}" y2="${(h * f).toFixed(0)}" stroke="#f1ede5" vector-effect="non-scaling-stroke"/>`).join("");
+  const grid = [0.25, 0.5, 0.75].map((f) => `<line x1="0" x2="${w}" y1="${(h * f).toFixed(0)}" y2="${(h * f).toFixed(0)}" stroke="rgba(23,24,28,.07)" vector-effect="non-scaling-stroke"/>`).join("");
   return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="height:${h}px">${grid}
     <polygon points="0,${h} ${pts(vals)} ${w},${h}" fill="${color}" opacity=".10"/>
     <polyline points="${pts(vals)}" fill="none" stroke="${color}" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
@@ -366,7 +381,7 @@ function containerRows(list) {
       : run ? `<span class="badge ok">${c.health === "healthy" ? "healthy" : "running"}</span>` : `<span class="badge ${c.status.startsWith("Exited (0)") ? "plain" : "bad"}">${esc(c.state)}</span>`;
     out += `<tr><td><div class="cname">${esc(c.name)}</div><div class="img">${esc(c.image)}</div></td>
       <td>${badge}<div class="muted" style="font-size:12px;margin-top:2px">${esc(c.status)}</div></td>
-      <td class="r mono">${c.cpu != null ? c.cpu.toFixed(1) + "%" : "–"}</td><td class="r mono">${c.mem ? bytes(c.mem.used) : "–"}</td>
+      <td class="r num">${c.cpu != null ? c.cpu.toFixed(1) + "%" : "–"}</td><td class="r num">${c.mem ? bytes(c.mem.used) : "–"}</td>
       <td class="hide-sm mono" style="font-size:11.5px;color:var(--muted)">${c.ports.map(esc).join("<br>") || "–"}</td>
       <td><div class="btns"><button class="btn" data-logs="${c.id}" data-name="${esc(c.name)}">Logs</button>
         ${run ? `<button class="btn" data-act="restart" data-id="${c.id}" data-name="${esc(c.name)}">Restart</button><button class="btn danger" data-act="stop" data-id="${c.id}" data-name="${esc(c.name)}">Stop</button>`
@@ -375,10 +390,10 @@ function containerRows(list) {
   return out;
 }
 function hostView(h) {
-  const s = h.stats, hist = h.history || [], color = HOSTC[h.name] || "var(--aegean)";
+  const s = h.stats, hist = h.history || [], color = DATA;
   const st = h.online ? `<span class="status-pill"><span class="dot ok live"></span>Up ${dur(s?.uptime)}</span>` : `<span class="status-pill"><span class="dot ${h.sometimes_off ? "off" : "bad"}"></span>Offline · last seen ${ago(h.last_seen)}</span>`;
   const head = `<button class="back" data-nav="dashboard">← Dashboard</button>
-    <div class="hero" style="--hc:${color}"><h1 style="view-transition-name: host-${h.name}">${esc(h.label)}</h1><span class="role">${esc(h.role || "")}</span>${st}</div>
+    <div class="hero"><h1 style="view-transition-name: host-${h.name}">${Suite.mark(h.name)}${esc(h.label)}</h1><span class="role">${esc(h.role || "")}</span>${st}</div>
     ${h.alerts.length ? `<div style="margin-top:16px">${banner(h.alerts)}</div>` : ""}`;
   const svcs = h.services?.length ? `<div class="sec"><h2>Services</h2></div><div class="grid services">${h.services.map(svcTile).join("")}</div>` : "";
   if (!h.online || !s) {
@@ -396,12 +411,12 @@ function hostView(h) {
   ].join("");
   const charts = `<div class="grid charts">
     <div class="card chart"><div class="head"><span>CPU · last 15 min</span><b>${(last.cpu ?? 0).toFixed(0)}%</b></div><div class="chart-box">${lineChart(hist, "cpu", { color })}</div></div>
-    <div class="card chart"><div class="head"><span>Memory</span><b>${(last.mem ?? 0).toFixed(0)}%</b></div><div class="chart-box">${lineChart(hist, "mem", { color: "#2f6f9f" })}</div></div>
-    <div class="card chart"><div class="head"><span>Network · in (solid) / out (dashed)</span><b>${rate(last.rx)}</b></div><div class="chart-box">${lineChart(hist, "rx", { max: null, color: "#3f8a5a", key2: "tx", color2: "#c4552d" })}</div></div>
-    ${s.gpu ? `<div class="card chart"><div class="head"><span>GPU</span><b>${Math.round(last.gpu ?? 0)}%</b></div><div class="chart-box">${lineChart(hist, "gpu", { color: "#c4552d" })}</div></div>` : ""}</div>`;
-  const disks = s.disks.map((d) => { const p = pct(d.used, d.total); return `<div class="disk"><div class="top"><span class="mono">${esc(d.mount)}</span><span>${bytes(d.used, 0)} of ${bytes(d.total, 0)} · ${p.toFixed(0)}%</span></div><div class="bar"><i class="${lvl(p)}" style="width:${p.toFixed(1)}%;--hc:${color}"></i></div></div>`; }).join("");
+    <div class="card chart"><div class="head"><span>Memory</span><b>${(last.mem ?? 0).toFixed(0)}%</b></div><div class="chart-box">${lineChart(hist, "mem", { color })}</div></div>
+    <div class="card chart"><div class="head"><span>Network in (solid) and out (dashed)</span><b>${rate(last.rx)}</b></div><div class="chart-box">${lineChart(hist, "rx", { max: null, color, key2: "tx", color2: DATA2 })}</div></div>
+    ${s.gpu ? `<div class="card chart"><div class="head"><span>GPU</span><b>${Math.round(last.gpu ?? 0)}%</b></div><div class="chart-box">${lineChart(hist, "gpu", { color })}</div></div>` : ""}</div>`;
+  const disks = s.disks.map((d) => { const p = pct(d.used, d.total); return `<div class="disk"><div class="top"><span class="mono">${esc(d.mount)}</span><span>${bytes(d.used, 0)} of ${bytes(d.total, 0)} · ${p.toFixed(0)}%</span></div><div class="bar"><i class="${lvl(p)}" style="width:${p.toFixed(1)}%"></i></div></div>`; }).join("");
   const temps = [...s.temps, ...(s.gpu?.temp != null ? [{ name: "GPU", c: s.gpu.temp }] : [])].map((t) => `<span class="temp">${esc(t.name)}<b>${C(t.c)}</b></span>`).join("");
-  const units = s.units.length ? `<h4 style="margin-top:16px">System services</h4><table class="ledger">${s.units.map((u) => `<tr><td><span class="dot ${u.active ? "ok" : "bad"}"></span>&nbsp; ${esc(u.name)}</td><td class="r mono">${u.cpu != null ? u.cpu.toFixed(1) + "%" : ""}</td><td class="r mono">${u.mem != null ? bytes(u.mem) : ""}</td></tr>`).join("")}</table>` : "";
+  const units = s.units.length ? `<h4 style="margin-top:16px">System services</h4><table class="ledger">${s.units.map((u) => `<tr><td><span class="dot ${u.active ? "ok" : "bad"}"></span>&nbsp; ${esc(u.name)}</td><td class="r num">${u.cpu != null ? u.cpu.toFixed(1) + "%" : ""}</td><td class="r num">${u.mem != null ? bytes(u.mem) : ""}</td></tr>`).join("")}</table>` : "";
   return head + `<div class="grid stats">${stats}</div>${charts}
     <div class="grid two"><div class="card panel"><h4>Storage</h4>${disks}</div><div class="card panel"><h4>Temperatures</h4><div class="temps">${temps || `<span class="muted">No sensors</span>`}</div>${units}</div></div>
     ${h.servers?.length ? `<div class="sec"><h2>Servers</h2></div><div class="grid servers">${h.servers.map(serverCard).join("")}</div>` : ""}
@@ -476,7 +491,7 @@ const People = (() => {
       <div style="overflow-x:auto" tabindex="0" role="region" aria-label="Devices"><table class="ledger"><tr><th>Device</th><th>Used by</th><th class="r hide-sm">Lookups (24 h)</th><th class="hide-sm">Last seen</th><th></th></tr>
       ${list.map((d, i) => `<tr data-i="${i}"><td><input name="name" value="${esc(d.name)}" maxlength="60" aria-label="Name for ${esc(d.name)}"><div class="ips">${esc(d.ips.join(" · "))}</div></td>
         <td><input name="people" value="${esc(d.people.join(", "))}" placeholder="e.g. Todd, Sam" list="people-list" aria-label="People using ${esc(d.name)}"></td>
-        <td class="r mono hide-sm">${N(d.lookups_24h)}</td><td class="hide-sm muted nowrap">${d.last ? ago(d.last) : "not seen"}</td>
+        <td class="r num hide-sm">${N(d.lookups_24h)}</td><td class="hide-sm muted nowrap">${d.last ? ago(d.last) : "not seen"}</td>
         <td><button class="btn" data-save="${i}" disabled>Save</button></td></tr>`).join("")}</table></div>`;
   }
   body.addEventListener("input", (e) => { const tr = e.target.closest("tr[data-i]"); if (tr) tr.querySelector("[data-save]").disabled = false; });
@@ -556,7 +571,7 @@ document.addEventListener("click", (e) => {
 document.addEventListener("keydown", (e) => {
   const typing = /input|textarea|select/i.test(document.activeElement?.tagName || "");
   const palette = e.target.closest?.("#oracle") || document.querySelector("#oracle.open");
-  if (e.key === "Escape" && !palette) { if (logState.open) closeLogs(); else if (route.startsWith("host/")) { keyNav = true; setRoute("dashboard"); } }
+  if (e.key === "Escape" && !palette) { if (logState.open) Suite.instant($("#drawer"), closeLogs); else if (route.startsWith("host/")) { keyNav = true; setRoute("dashboard"); } }
   if (e.key === "Enter" && document.activeElement?.dataset?.host) { keyNav = true; setRoute("host/" + document.activeElement.dataset.host); }
   if (typing || palette || e.ctrlKey || e.metaKey || e.altKey) return;
   if (!onDash() && e.key.length === 1 && e.key !== "/") Ask.focus();  // on the Chat tab, just start typing
@@ -574,7 +589,7 @@ async function allContainers() {
 }
 Suite.Oracle.register(async (q) => {
   const st = lastState || (await api("/api/state"));
-  const out = st.hosts.map((h, i) => ({ group: "Machines", icon: h.label[0], title: h.label, sub: `${h.role} · ${h.online ? "online" : "offline"}`, hint: String(i + 1), run: () => setRoute("host/" + h.name) }));
+  const out = st.hosts.map((h, i) => ({ group: "Machines", mark: h.name, title: h.label, sub: `${h.role} · ${h.online ? "online" : "offline"}`, hint: String(i + 1), run: () => setRoute("host/" + h.name) }));
   st.services.filter((s) => s.url).forEach((s) => out.push({ group: "Services", icon: s.name[0], title: `Open ${s.name}`, sub: `${s.host} · ${s.up ? "up" : "down"}`, run: () => window.open(s.url, "_blank", "noopener") }));
   if (q.length >= 2) {
     for (const c of await allContainers()) {
@@ -617,7 +632,7 @@ async function drill(parent, t, params, label) {
 function hostNode(h) {
   const rows = (h.containers || []).map((c) => `<tr><td><div class="cname">${esc(c.name)}</div><div class="img">${esc(c.image)}</div></td>
     <td><span class="badge ${c.health === "unhealthy" ? "bad" : c.state === "running" ? "ok" : "plain"}">${esc(c.health === "unhealthy" ? "unhealthy" : c.state)}</span></td>
-    <td class="r mono">${c.cpu != null ? c.cpu.toFixed(1) + "%" : "–"}</td><td class="r mono">${c.mem ? bytes(c.mem.used) : "–"}</td></tr>`).join("");
+    <td class="r num">${c.cpu != null ? c.cpu.toFixed(1) + "%" : "–"}</td><td class="r num">${c.mem ? bytes(c.mem.used) : "–"}</td></tr>`).join("");
   return node(`<div class="grid tiles">${hostCard(h)}
     ${(h.history || []).length > 1 ? `<div class="card tile"><h4>${esc(h.label)} <small>CPU and memory, last 15 minutes</small></h4><div class="viz" data-host-viz role="img" aria-label="CPU and memory history"></div></div>` : ""}
     ${rows ? `<div class="card panel" style="overflow-x:auto;padding-top:6px" tabindex="0" role="region" aria-label="${esc(h.label)} containers"><table class="ledger"><tr><th>Container</th><th>State</th><th class="r">CPU</th><th class="r">Memory</th></tr>${rows}</table></div>` : ""}</div>`);

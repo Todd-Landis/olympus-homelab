@@ -13,6 +13,7 @@ services:
       FTLCONF_database_DBinterval: "300"
       FTLCONF_dns_hosts: "192.168.50.2 horae.home"                    # local name for the Pi
       FTLCONF_dns_revServers: "true,192.168.50.0/24,192.168.50.1,lan" # ask the ASUS for LAN device names
+      FTLCONF_webserver_interface_theme: "default-light"              # light, like every Olympus site (docs/DESIGN.md)
     volumes:
       - ./pihole:/etc/pihole
     cap_add:

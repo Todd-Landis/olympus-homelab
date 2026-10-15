@@ -7,7 +7,7 @@
   const SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"];
   const ALLOWED = SERIES[0], BLOCKED = SERIES[1];
   const SEQ = ["#e8f1fc", "#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"];
-  const INK = "#1d1c1a", INK2 = "#4a4741", MUTED = "#6b665e", GRID = "#f1ede5", AXIS = "#d8d1c3", SURFACE = "#ffffff";
+  const INK = "#17181b", INK2 = "#44464c", MUTED = "#62656c", GRID = "rgba(23,24,28,.07)", AXIS = "rgba(23,24,28,.18)", LINE = "rgba(23,24,28,.10)", SURFACE = "#ffffff";  // suite.css tokens
   const FONT = '"Inter", "Segoe UI", system-ui, sans-serif';
   const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const N = (n) => (n ?? 0).toLocaleString();
@@ -19,9 +19,9 @@
     textStyle: { fontFamily: FONT, color: INK2, fontSize: 12 },
     grid: { left: 8, right: 16, top: 34, bottom: 8, containLabel: true },
     tooltip: {
-      confine: true, backgroundColor: SURFACE, borderColor: "#e7e2d8", borderWidth: 1, padding: [8, 10],  // confine: never past the chart edge
+      confine: true, backgroundColor: SURFACE, borderColor: LINE, borderWidth: 1, padding: [8, 10],  // confine: never past the chart edge
       textStyle: { color: INK, fontFamily: FONT, fontSize: 12.5 },
-      extraCssText: "box-shadow: 0 6px 24px rgba(40,32,20,.10); border-radius: 10px;",
+      extraCssText: "box-shadow: 0 8px 24px -6px rgba(23,24,28,.16); border-radius: 10px;",
     },
     legend: { top: 0, right: 0, itemWidth: 10, itemHeight: 10, icon: "roundRect", textStyle: { color: INK2, fontSize: 12 } },
   });
@@ -144,13 +144,13 @@
   function networkTable(t) {
     const tr = (cells) => `<tr>${cells.join("")}</tr>`, td = (v, cls = "") => `<td class="${cls}">${v}</td>`;
     if (t.group === "none") return `<table class="ledger"><tr><th>Time</th><th>Device</th><th>Domain</th><th></th></tr>${t.rows.map((r) =>
-      tr([td(esc(when(r.t)), "mono nowrap"), td(esc(r.device)), td(esc(r.domain), "brk"), td(r.blocked ? `<span class="badge bad">blocked</span>` : "")])).join("")}</table>`;
+      tr([td(esc(when(r.t)), "num nowrap"), td(esc(r.device)), td(esc(r.domain), "brk"), td(r.blocked ? `<span class="badge bad">blocked</span>` : "")])).join("")}</table>`;
     if (t.group === "weekday_hour") return `<table class="ledger"><tr><th>Day</th><th>Hour</th><th class="r">Lookups</th><th class="r">Blocked</th></tr>${[...t.rows].sort((a, b) => b.queries - a.queries).map((r) =>
-      tr([td(DAYS[r.weekday]), td(esc(hourLabel(r.hour))), td(N(r.queries), "r mono"), td(N(r.blocked), "r mono")])).join("")}</table>`;
+      tr([td(DAYS[r.weekday]), td(esc(hourLabel(r.hour))), td(N(r.queries), "r num"), td(N(r.blocked), "r num")])).join("")}</table>`;
     if (t.group === "hour" || t.group === "day") return `<table class="ledger"><tr><th>From</th><th class="r">Lookups</th><th class="r">Blocked</th></tr>${t.rows.map((r) =>
-      tr([td(esc(when(r.t)), "mono nowrap"), td(N(r.queries), "r mono"), td(N(r.blocked), "r mono")])).join("")}</table>`;
+      tr([td(esc(when(r.t)), "num nowrap"), td(N(r.queries), "r num"), td(N(r.blocked), "r num")])).join("")}</table>`;
     return `<table class="ledger"><tr><th>${esc(t.group[0].toUpperCase() + t.group.slice(1))}</th><th class="r">Lookups</th><th class="r">Blocked</th><th>Last</th></tr>${t.rows.map((r) =>
-      tr([td(esc(r.name) + (r.people?.length ? `<div class="muted small">${esc(r.people.join(", "))}</div>` : "")), td(N(r.queries), "r mono"), td(N(r.blocked), "r mono"), td(esc(when(r.last)), "mono nowrap")])).join("")}</table>`;
+      tr([td(esc(r.name) + (r.people?.length ? `<div class="muted small">${esc(r.people.join(", "))}</div>` : "")), td(N(r.queries), "r num"), td(N(r.blocked), "r num"), td(esc(when(r.last)), "num nowrap")])).join("")}</table>`;
   }
 
   // ---------------------------------------------------------------- machine history

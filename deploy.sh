@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Deploy from this repo to the servers over Tailscale/SSH.
-#   ./deploy.sh olympus | netwatch | horae-agent | horae-stack | horae-theme | hephaestus-agent | all
+#   ./deploy.sh olympus | netwatch | horae-agent | horae-stack | horae-theme | horae-ha | hephaestus-agent | all
 # The shared design in suite/ is copied into each app here, so edit it in one place.
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -55,6 +55,12 @@ horae_theme() {
   scp -q build/custom.css build/custom.js horae/homepage/*.yaml synestri@horae:/opt/pihub/homepage/
   echo "horae theme: deployed"
 }
+horae_ha() {
+  # Home Assistant's config dir is root-owned, so this only copies; ha-theme.sh (sudo) installs and checks it.
+  ssh synestri@horae 'mkdir -p ~/olympus-ha'
+  scp -q horae/homeassistant/themes/olympus.yaml horae/homeassistant/www/olympus/fonts.js horae/scripts/ha-theme.sh synestri@horae:olympus-ha/
+  echo "home assistant theme: files copied. Apply on the Pi:  ssh synestri@horae, then  sudo bash ~/olympus-ha/ha-theme.sh"
+}
 
 case "${1:-}" in
   olympus) olympus ;;
@@ -62,7 +68,8 @@ case "${1:-}" in
   horae-agent) horae_agent ;;
   horae-stack) horae_stack ;;
   horae-theme) horae_theme ;;
+  horae-ha) horae_ha ;;
   hephaestus-agent) hephaestus_agent ;;
   all) olympus; netwatch; horae_agent; horae_theme ;;
-  *) echo "usage: $0 olympus|netwatch|horae-agent|horae-stack|horae-theme|hephaestus-agent|all"; exit 1 ;;
+  *) echo "usage: $0 olympus|netwatch|horae-agent|horae-stack|horae-theme|horae-ha|hephaestus-agent|all"; exit 1 ;;
 esac
