@@ -78,6 +78,28 @@ readable. No dark mode.
    Split by it: 8 Kasa plugs (`EP25 ·…`), two `Apple Watch`, two `iPad`, two `Todd's Surface Laptop` MACs.
 4. **Network Watch can't show full URLs**, only domains: it's built on DNS, and paths travel inside HTTPS. Getting them
    would take a TLS-intercepting proxy; Todd was told why that's not recommended here.
+5. **Apple Home devices in HA** (Apple Home stays primary; nothing removed, re-paired or renamed there). Matter devices were
+   shared by multi-admin: Home app on the Mac > accessory > Accessory Settings > Turn On Pairing Mode, then the code went to
+   matter-server's `commission_with_code` (`network_only: true`) over its WebSocket from inside the HA container. The
+   Kasa plugs came in through HA's TP-Link integration (local, no TP-Link login needed). Names/areas in HA follow Apple Home
+   (new HA areas: Garage, Guest Bedroom, Family Room; Apple's "Entrance" = HA's existing "Entryway"). In Apple Home's
+   Home Settings > Connected Services, HA's Matter fabric shows as "Matter Test" (matter-server's default label; harmless).
+
+   | Apple Home room / name | Brand | Path | HA entity |
+   |---|---|---|---|
+   | Entrance / Front Door | Aqara U400 lock (Thread) | Matter (shared earlier) | `lock.entryway_front_door` |
+   | Entrance / Back Door | Aqara U400 lock (Thread) | Matter, node 4 | `lock.entryway_back_door` |
+   | Living Room / Entryway Table Lamp | Leedarson plug (Wi-Fi) | Matter, node 2 | `switch.entryway_table_lamp` |
+   | Main Bedroom / Fan | Leedarson plug (Wi-Fi) | Matter, node 3 | `switch.fan` |
+   | Garage / Interior Door | Aqara Door & Window Sensor P2 (Thread) | Matter, node 5 | `binary_sensor.garage_interior_door` |
+   | Garage / Smart Presence Sensor | Meross (Wi-Fi) | Matter, node 6 | `binary_sensor.garage_smart_presence_sensor_occupancy` |
+   | 10 lamps (Living Room ×2, Main Bedroom ×2, Guest Bedroom ×2, Office, Family Room, Kitchen, Garage) | Kasa EP25 | TP-Link integration | `switch.living_room_floor_lamp`, `switch.upstairs_landing_lamp`, `switch.main_bedroom_{left,right}_bedside_table_lamp`, `switch.guest_bedroom_{left,right}_bedside_lamp`, `switch.office_ambient_floor_lamp`, `switch.family_room_ambient_floor_lamp`, `switch.kitchen_accent_light`, `switch.garage_overhead_light` |
+   | Entrance / Blind Tilt 4F | SwitchBot | SwitchBot Bluetooth integration (was already there) | via `switchbot` |
+
+   Toggle-tested HA -> Apple Home: Fan, Entryway Table Lamp, Garage Overhead Light (all put back). Locks not toggled (both
+   read `locked`, matching Apple Home); sensors match Apple Home. Thread devices commissioned first try; horae has the
+   Thread route (`fd92:133d:9c80::/64` via the Apple border router, `accept_ra=2`, `accept_ra_rt_info_max_plen=64` on eth0).
+   Deliberately skipped: the SwitchBot **Hub Mini** Matter bridge (it only bridges the Blind Tilt, already in HA: would duplicate).
 
 ## Changes on 2026-10-09
 
@@ -123,8 +145,14 @@ readable. No dark mode.
    default theme on every device (Developer tools > Actions > "Frontend: Set the default theme").
 5. **Home Assistant**: the account exists (onboarding done; one user, `talandis`; if the password is forgotten, Todd resets it on
    horae with `docker exec homeassistant python -m homeassistant --script auth --config /config change_password talandis …`
-   and restarts HA). Matter integration (`ws://localhost:5580/ws`) and sharing Apple Home devices (Turn On Pairing
-   Mode -> code -> HA) still to check/finish. Then a long-lived token for an HA widget; Todd saves it on the server himself.
+   and restarts HA). Apple Home sharing is done (see "Changes on 2026-10-15", item 5). Still open, each Todd's call:
+   - **ecobee thermostat** (ECB601, Entrance, with its occupancy/motion/temperature sensors): HomeKit-only; HA's ecobee
+     integration needs a developer API key, which ecobee no longer issues. HomeKit Controller would mean removing it from Apple Home.
+   - **Meross garage door** (MSG100): HomeKit-only; HA has no built-in Meross integration. Only route: HACS + `meross_lan`
+     (needs the Meross account). Not installed.
+   - Left alone (HomeKit-only, no HA path without leaving Apple Home): Eve Flare, Eve Water Guard, Aqara G2H Pro and Back Patio
+     cameras, Logitech Circle View doorbell, Dreame vacuum.
+   - Then a long-lived token for an HA widget; Todd saves it on the server himself.
 6. **Unidentified devices** in Network (`Device ·16:0c`, `Device ·5e:c5`, `Device ·5a:4e`, `virtual interface ·00:00`, the TP-Link /
    Espressif / AMPAK / Logitech ones): name them by MAC (Olympus Dashboard or `names.json`) once Todd knows what they are.
    Also the splits from 2026-10-15: is `Apple Watch ·c0:1a` / `·3a:23` one watch (rotating address) or two? Which `iPad` is
