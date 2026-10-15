@@ -8,6 +8,9 @@ Sources: Emil Kowalski's skills (vendored unchanged in `.claude/skills/`: `emil-
 `review-animations`, `find-animation-opportunities`, `animation-performance`, `mobile-native`, `break-ui`; MIT) and
 Todd's decisions in the design log. Where a rule here is stricter than a skill, this file wins.
 
+A browsable copy with live component previews, the tokens and the marks: https://claude.ai/artifact/5BhHPJFP5yiCj9q8NjVCfM
+(private to Todd; this file is the source of truth if the two ever differ).
+
 ## 1. Product
 
 - **Who:** Todd, alone, on his own tailnet. Technical: knows what a container, DNS lookup and IP are.
