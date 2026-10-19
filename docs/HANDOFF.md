@@ -154,7 +154,6 @@ readable. No dark mode.
      cameras, Logitech Circle View doorbell, Dreame vacuum.
    - Then a long-lived token for an HA widget; Todd saves it on the server himself.
 6. **Adult sites**: run `./deploy.sh adult` from the Mac (see "Content categories"), then delete the two backups it names.
-   Open question for Todd: keep logging blocked attempts (useful to see who tried), or drop them.
 7. **Unidentified devices** in Network (`Device ·16:0c`, `Device ·5e:c5`, `Device ·5a:4e`, `virtual interface ·00:00`, the TP-Link /
    Espressif / AMPAK / Logitech ones): name them by MAC (Olympus Dashboard or `names.json`) once Todd knows what they are.
    Also the splits from 2026-10-15: is `Apple Watch ·c0:1a` / `·3a:23` one watch (rotating address) or two? Which `iPad` is
@@ -202,7 +201,8 @@ Done today (details above): router move, Dragonwilds forwards, history clean-up,
   container recreated so its raw text logs go too), then adds `https://nsfw.oisd.nl` (the same OISD list, Adblock format, so
   subdomains are blocked too) as a Pi-hole blocklist and updates gravity. Then `pihole-watch/app/purge.py` removes the
   same sites from Network Watch's DB and its domcat tags. Both leave a backup of the DB as it was (root-only on horae,
-  `~/pihole-watch/data/` on helios) for Todd to delete. Blocked attempts are still logged from then on, marked blocked.
+  `~/pihole-watch/data/` on helios) for Todd to delete. Blocked attempts are still logged from then on, marked blocked:
+  **Todd's decision (2026-10-19), so he can see if someone tried.** Don't add filtering or nightly purges for them.
   Tested against a fake Pi-hole v6 DB built from FTL's schema and against the dev stack's Network Watch DB.
 
 ## Game servers
