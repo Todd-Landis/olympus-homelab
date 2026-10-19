@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Deploy from this repo to the servers over Tailscale/SSH.
-#   ./deploy.sh olympus | netwatch | horae-agent | horae-stack | horae-theme | horae-ha | hephaestus-agent | adult | all
+#   ./deploy.sh olympus | netwatch | horae-agent | horae-stack | horae-theme | horae-ha | hephaestus-agent | adult | adult-netwatch | all
 # The shared design in suite/ is copied into each app here, so edit it in one place.
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -61,10 +61,18 @@ horae_ha() {
   scp -q horae/homeassistant/themes/olympus.yaml horae/homeassistant/www/olympus/fonts.js horae/scripts/ha-theme.sh synestri@horae:olympus-ha/
   echo "home assistant theme: files copied. Apply on the Pi:  ssh synestri@horae, then  sudo bash ~/olympus-ha/ha-theme.sh"
 }
+reach() {  # fail before changing anything if a machine can't be reached
+  local h
+  for h in "$@"; do
+    ssh -o ConnectTimeout=8 -o BatchMode=yes "$h" true 2>/dev/null || {
+      echo "Can't reach $h over SSH ($(ssh -G "$h" | awk '/^hostname /{print $2}')). Is Tailscale connected on this Mac (menu bar icon)?"; exit 1; }
+  done
+}
 adult() {
   # Adult sites: remove every lookup of them from Pi-hole's and Network Watch's history for good, then block them.
   # One list for all of it: the copy Network Watch tags "adult" with (OISD NSFW), so both forget exactly the same sites.
-  # Files go over plain ssh (cat), not scp: macOS' scp failed on the download with a bare "Connection closed".
+  # Files go over plain ssh (cat), not scp: macOS' scp failed on a download with a bare "Connection closed".
+  reach helios synestri@horae
   echo "== [1/3] Copy the script and the list to horae"
   ssh synestri@horae 'mkdir -p ~/olympus-adult && rm -f ~/olympus-adult/adult.txt'
   ssh synestri@horae 'cat > ~/olympus-adult/adult-content.sh' < horae/scripts/adult-content.sh
@@ -72,18 +80,23 @@ adult() {
     ssh synestri@horae 'cat > ~/olympus-adult/adult.txt' < build/adult.txt
     echo "   Network Watch's copy of the list: $(wc -l < build/adult.txt | tr -d ' ') lines"
   else
-    echo "   Network Watch has no copy of the list on helios; the Pi will download it itself."
+    echo "   Couldn't get Network Watch's copy of the list from helios; the Pi will download it itself."
   fi
   rm -f build/adult.txt
   echo "== [2/3] Pi-hole on horae (asks for the Pi's sudo password)"
   # Pi-hole first: Network Watch re-reads the last minute from it on start.
   ssh -t synestri@horae 'sudo bash ~/olympus-adult/adult-content.sh'
   echo "== [3/3] Network Watch on helios"
+  adult_netwatch
+  echo "adult sites: gone from history, blocked from now on. Backups of both databases as they were are listed above;"
+  echo "  delete them once you're happy: on helios  rm ~/pihole-watch/data/watch.db.before-adult-purge-*  and on horae the sudo rm shown above."
+}
+adult_netwatch() {
+  # Network Watch's part alone (run after Pi-hole's): ./deploy.sh adult-netwatch
+  reach helios
   ssh helios 'cat > ~/pihole-watch/app/purge.py' < pihole-watch/app/purge.py
   ssh helios 'cd ~/pihole-watch && docker compose stop pihole-watch >/dev/null 2>&1 &&
     docker compose run --rm --no-deps --name pihole-watch-purge pihole-watch python -u purge.py adult; rc=$?; docker compose up -d pihole-watch >/dev/null 2>&1; exit $rc'
-  echo "adult sites: gone from history, blocked from now on. Backups of both databases as they were are listed above;"
-  echo "  delete them once you're happy: on helios  rm ~/pihole-watch/data/watch.db.before-adult-purge-*  and on horae the sudo rm shown above."
 }
 
 case "${1:-}" in
@@ -94,7 +107,8 @@ case "${1:-}" in
   horae-theme) horae_theme ;;
   horae-ha) horae_ha ;;
   adult) adult ;;
+  adult-netwatch) adult_netwatch ;;
   hephaestus-agent) hephaestus_agent ;;
   all) olympus; netwatch; horae_agent; horae_theme ;;
-  *) echo "usage: $0 olympus|netwatch|horae-agent|horae-stack|horae-theme|horae-ha|hephaestus-agent|adult|all"; exit 1 ;;
+  *) echo "usage: $0 olympus|netwatch|horae-agent|horae-stack|horae-theme|horae-ha|hephaestus-agent|adult|adult-netwatch|all"; exit 1 ;;
 esac
