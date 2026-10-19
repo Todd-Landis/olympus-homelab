@@ -42,12 +42,22 @@
   .devrow .sub { font: 11.5px var(--mono); color: var(--muted); overflow-wrap: anywhere; }
   .toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
   .leaders li[data-site] { cursor: pointer; }
+  /* switches that change the network for everyone: the whole card is the target, the switch says the state */
+  .switches { display: grid; gap: 10px 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-top: 14px; }
+  .swcard { display: flex; align-items: center; gap: 14px; padding: 11px 14px 11px 16px; cursor: pointer; -webkit-user-select: none; user-select: none; }
+  .swcard:has(.switch:disabled) { cursor: default; }
+  .swcard .tx { flex: 1; min-width: 0; }
+  .swcard .l { font: 500 13.5px/1.35 var(--sans); }
+  .swcard .s { font-size: 12.5px; color: var(--muted); }
+  .swcard .s.err { color: var(--bad-ink); }
   @media (max-width: 760px) { .when { white-space: normal; width: auto; min-width: 84px; } }  /* the time wraps so the numbers keep their room */
   @media (hover: hover) and (pointer: fine) {
     .tabs button:hover { color: var(--text); }
     .colbars .b:hover .q { background: #256abf; }
     .colbars .b:hover .x { background: #d45a2a; }
     .leaders li[data-site]:hover .name { color: var(--accent-ink); }
+    .swcard:hover .switch:not(:disabled) { background-color: rgba(23, 24, 28, .56); }
+    .swcard:hover .switch[aria-checked="true"]:not(:disabled) { background-color: #256abf; }
   }
 </style>
 </head>
@@ -63,6 +73,16 @@
     <select id="wifi" aria-label="Wi-Fi network" hidden><option value="">All Wi-Fi networks</option></select>
     <label class="chk"><input type="checkbox" id="noise" checked> Hide background</label>
   </div>
+  <section class="switches" aria-label="Network switches">
+    <div class="card swcard" data-sw="filter">
+      <div class="tx"><div class="l" id="sw-filter-l">Adult-site filter</div><div class="s" id="sw-filter-s">Checking…</div></div>
+      <button class="switch" id="sw-filter" role="switch" aria-checked="false" aria-labelledby="sw-filter-l" aria-describedby="sw-filter-s" disabled></button>
+    </div>
+    <div class="card swcard" data-sw="incognito">
+      <div class="tx"><div class="l" id="sw-incognito-l">Incognito</div><div class="s" id="sw-incognito-s">Checking…</div></div>
+      <button class="switch" id="sw-incognito" role="switch" aria-checked="false" aria-labelledby="sw-incognito-l" aria-describedby="sw-incognito-s" disabled></button>
+    </div>
+  </section>
   <nav class="tabs" id="tabs">
     <button data-tab="overview" class="on">Overview<kbd>1</kbd></button>
     <button data-tab="sites">Sites<kbd>2</kbd></button>
@@ -111,6 +131,57 @@ async function unblock(kind, domain, btn) {
   btn.disabled = true;
   try { await post("/api/unblock", { kind, domain }); toast("Unblocked"); lastView = ""; render(); }
   catch (e) { toast("Couldn't unblock: " + e.message); btn.disabled = false; }
+}
+
+// ------------------------------------------------------------------ switches: the adult-site filter and Incognito
+// Both change Pi-hole for every device. The switch moves when Pi-hole has made the change, not before.
+let controls = null, controlsErr = "", controlsAt = 0;
+const swBusy = {};
+const SW_NAME = { filter: "the adult-site filter", incognito: "Incognito" };
+async function loadControls() {
+  if (Object.keys(swBusy).length) return;  // a change is on its way; its answer is fresher
+  try { controls = await api("/api/controls"); controlsErr = ""; }
+  catch (e) { controlsErr = e.message; }
+  controlsAt = Date.now();
+  drawControls();
+}
+function drawControls() {
+  const c = controls;
+  const set = (key, on, sub, usable) => {
+    const b = $("#sw-" + key), s = $("#sw-" + key + "-s");
+    b.setAttribute("aria-checked", String(!!on));
+    b.setAttribute("aria-busy", String(!!swBusy[key]));
+    b.disabled = !usable;
+    s.textContent = swBusy[key] || (controlsErr ? `Couldn't check Pi-hole: ${controlsErr}` : sub);
+    s.classList.toggle("err", !swBusy[key] && !!controlsErr);
+  };
+  if (!c) { set("filter", false, "Checking…", false); set("incognito", false, "Checking…", false); return; }
+  const f = c.filter, i = c.incognito, ok = !controlsErr;
+  set("filter", f.on, !f.installed ? "Not set up yet: run ./deploy.sh adult once" : f.on ? `Blocking ${N(f.sites)} adult sites on every device` : "Off: adult sites load on every device", ok && f.installed);
+  set("incognito", i.on, i.on ? `Not recording lookups${i.since ? " since " + fmtWhen(i.since) : ""}` : "Off: every lookup is recorded", ok);
+}
+async function flip(key, viaKeyboard) {
+  if (!controls || swBusy[key] || controlsErr || (key === "filter" && !controls.filter.installed)) return;
+  const on = !controls[key].on;
+  const ask = key === "filter"
+    ? (on ? null : "Turn off the adult-site filter? Adult sites will load on every device until you turn it back on.")
+    : on ? "Turn on Incognito? Pi-hole stops recording lookups from every device until you turn it off, so nothing from that time shows here or in Pi-hole. Blocking keeps working."
+      : "Turn off Incognito? Pi-hole restarts to record again, so the internet pauses for every device for a few seconds.";
+  if (ask && !confirm(ask)) return;
+  swBusy[key] = on ? "Turning on…" : key === "incognito" ? "Turning off: Pi-hole is restarting…" : "Turning off…";
+  drawControls();
+  try {
+    const c = await post("/api/" + key, { on });
+    delete swBusy[key];
+    const apply = () => { controls = c; controlsErr = ""; controlsAt = Date.now(); drawControls(); };
+    viaKeyboard ? Suite.instant($("#sw-" + key), apply) : apply();  // keyboard: no slide
+    toast(key === "filter" ? (on ? `Adult-site filter on: blocking ${N(c.filter.sites)} sites` : "Adult-site filter off")
+      : on ? "Incognito on: lookups aren't recorded" : "Incognito off: recording lookups again");
+    refreshStatus();
+  } catch (e) {
+    delete swBusy[key]; drawControls();
+    toast(`Couldn't turn ${on ? "on" : "off"} ${SW_NAME[key]}: ${e.message}`);
+  }
 }
 const prettyRegex = (r) => { const m = /^\(\\\.\|\^\)(.+)\$$/.exec(r); return m ? m[1].replace(/\\\./g, ".") : r; };
 const pills = (devs) => Object.entries(devs).sort((a, b) => b[1] - a[1]).map(([n]) => `<span class="chipdev">${esc(n)}</span>`).join("");
@@ -237,9 +308,12 @@ async function refreshStatus() {
   const el = $("#status");
   try {
     const h = await api("/api/health");
+    const inc = controls?.incognito;
     if (!h.has_secret) { el.textContent = "Waiting for the Pi-hole app password"; el.className = "status err"; Suite.setLive(false, "No password"); }
     else if (h.last_error) { el.textContent = "Sync problem: " + h.last_error; el.className = "status err"; Suite.setLive(false, "Sync problem"); }
-    else if (h.last_sync) {
+    else if (inc?.on) {
+      el.textContent = `Incognito${inc.since ? " since " + fmtWhen(inc.since) : ""}: lookups aren't recorded`; el.className = "status"; Suite.setLive("off", "Incognito");
+    } else if (h.last_sync) {
       const s = Math.max(0, Math.round(Date.now() / 1000 - h.last_sync));
       el.textContent = s < 60 ? `Updated ${s}s ago` : `Updated ${ago(h.last_sync)}`; el.className = "status"; Suite.setLive(s < 60);
     } else { el.textContent = "First sync in progress…"; el.className = "status"; }
@@ -272,6 +346,7 @@ document.addEventListener("click", (e) => {
   if (t.closest("[data-close]") || t.id === "drawer") return closeSite();
   const b = t.closest("[data-block]"); if (b) { e.stopPropagation(); return block(b.dataset.block, b.dataset.scope || "site", b); }
   const u = t.closest("[data-unblock]"); if (u) return unblock(u.dataset.kind, u.dataset.unblock, u);
+  const sw = t.closest("[data-sw]"); if (sw) return flip(sw.dataset.sw, e.detail === 0);  // detail 0: Space or Enter on the switch
   const tb = t.closest("#tabs button"); if (tb) return setTab(tb.dataset.tab);
   const dev = t.closest("[data-device]"); if (dev) { $("#device").value = dev.dataset.device; return setTab("timeline"); }
   const row = t.closest("[data-site]"); if (row) openSite(row.dataset.site);
@@ -289,7 +364,7 @@ async function poll() {
   const every = Number($("#hours").value) > 72 ? 30000 : 5000;
   if (polling || document.hidden || Date.now() - lastPoll < every - 250) return;
   polling = true; lastPoll = Date.now();
-  try { await Promise.all([refreshStatus(), render(), loadSite()]); } finally { polling = false; }
+  try { await Promise.all([Date.now() - controlsAt > 30000 && loadControls(), refreshStatus(), render(), loadSite()]); } finally { polling = false; }
 }
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { lastPoll = 0; poll(); } });
 
@@ -301,6 +376,10 @@ Suite.Oracle.register(async (q) => {
     ...[["24", "Last 24 hours"], ["72", "Last 3 days"], ["168", "Last 7 days"], ["720", "Last 30 days"]].map(([h, l]) => ({ group: "Time range", icon: "◷", title: l, keywords: "range period", run: () => { $("#hours").value = h; savePrefs(); render(true); } })),
     ...deviceList.map((d) => ({ group: "Devices", icon: d[0].toUpperCase(), title: `${d} timeline`, sub: "Show only this device", run: () => { $("#device").value = d; setTab("timeline"); } })),
     { group: "Devices", icon: "∗", title: "All devices", run: () => { $("#device").value = ""; savePrefs(); render(true); } },
+    ...(controls && !controlsErr ? [
+      ...(controls.filter.installed ? [{ group: "Switches", icon: "⊘", title: `Turn ${controls.filter.on ? "off" : "on"} the adult-site filter`, sub: controls.filter.on ? "Every device · asks first" : "Every device", keywords: "adult porn nsfw filter block", run: () => flip("filter", true) }] : []),
+      { group: "Switches", icon: "◐", title: `Turn ${controls.incognito.on ? "off" : "on"} Incognito`, sub: controls.incognito.on ? "Record lookups again · asks first" : "Stop recording lookups · asks first", keywords: "incognito private privacy record log", run: () => flip("incognito", true) },
+    ] : []),
     ...(lanInfo?.networks || []).map((n) => ({ group: "Wi-Fi network", icon: "≋", title: `Only ${n}`, sub: "Show devices on this Wi-Fi network", run: () => { $("#wifi").value = n; savePrefs(); render(true); } })),
   ];
   if (q.length >= 2) {
@@ -317,7 +396,7 @@ Suite.Oracle.register(async (q) => {
 
 Suite.mount({ app: "netwatch" });
 (async () => {
-  await Promise.all([loadDevices(), loadNetworks()]);
+  await Promise.all([loadDevices(), loadNetworks(), loadControls()]);
   await Promise.all([refreshStatus(), render(true)]);
   lastPoll = Date.now();
   setInterval(poll, 1000);

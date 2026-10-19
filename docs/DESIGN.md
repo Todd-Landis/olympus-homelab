@@ -126,7 +126,8 @@ From Emil Kowalski (`emil-design-eng`, `animate`, `review-animations`). Run the 
 
 | Element | Duration | Notes |
 | --- | --- | --- |
-| Press (`:active`) | 160ms | `scale(.97)` on buttons, tabs, pills; `.99` on big cards |
+| Press (`:active`) | 160ms | `scale(.97)` on buttons, tabs, pills; `.99` on big cards; `.95` on a switch |
+| Switch | 160ms | the thumb slides once the change has applied, not on the press; **flipped by keyboard or Ctrl K: no slide** |
 | Hover colour / ring | 150ms | only inside `@media (hover: hover) and (pointer: fine)` |
 | Entrances (chat reply, tiles) | 200ms | `@starting-style`: opacity 0 + 4px rise; never from `scale(0)` |
 | Drawer | 250ms in, 200ms out | enters from the right, leaves to the right (exit faster); **Esc closes instantly** (`Suite.instant`) |
@@ -170,9 +171,17 @@ Reuse these; don't fork a parallel version.
   flat (`--surface-2`, ring only) with a sentence saying why and what to expect.
 - **Server card** (`.server`), **service tile** (`.svc`), **stat** (`.stat` / `.plaque`), **KPIs** (`.kpis`).
 - **Meter** (`.bar > i`): neutral ink, `.w` ≥ 75%, `.b` ≥ 90%. The number beside it is the truth; the bar is the glance.
-- **Badge** (`.badge.ok|warn|bad|plain`), **dot** (`.dot.ok|warn|bad|off`, `.live`).
+- **Badge** (`.badge.ok|warn|bad|plain`), **dot** (`.dot.ok|warn|bad|off`, `.live`). The masthead pill is
+  `Suite.setLive(true|false)`, or `Suite.setLive("off", "Incognito")` for a state that is neither live nor broken.
 - **Buttons** (`.btn`): quiet default; `.btn.go` primary is ink with white text (one per view); `.btn.danger` is red
   text that fills red only on hover. Destructive actions ask first.
+- **Switch** (`<button class="switch" role="switch" aria-checked>`): for a setting that applies the moment it flips.
+  On = accent track; off = ink track at 3.5:1, so the state reads without colour; 40×24 with a 44px-tall hit area. It
+  sits at the right of a card whose title names the setting (`aria-labelledby`) and whose line under it says what is
+  true now ("Blocking 473,658 adult sites on every device", "Not recording lookups since 3:26 PM"); the whole card is
+  the target. Turning off something protective, or anything that affects everyone, asks first. While Pi-hole (or
+  whatever) applies it: `aria-busy`, the line says what is happening, and the switch moves only when it's done.
+  Keep focus on it throughout (never `disabled` while busy). A checkbox (`label.chk`) is for a view filter instead.
 - **Fields:** ring, not border; focus = accent ring + 4px halo, instantly. Selects get the suite chevron.
 - **Ledger table** (`.ledger`): header row in caption style; group rows in 600 sentence case; numbers right-aligned
   and tabular. Scrolling boxes get `tabindex="0" role="region" aria-label="…"`.
@@ -232,7 +241,7 @@ errors.
 | Site | Tier | How the rules apply |
 | --- | --- | --- |
 | **Olympus** (`olympus/hub/static`) | built here | Full system. Chat is the front door; Dashboard tab; host marks; the dock. |
-| **Network Watch** (`pihole-watch/app/static`) | built here | Full system. Underline tabs; activity bars in the chart palette; site drawer. |
+| **Network Watch** (`pihole-watch/app/static`) | built here | Full system. Switches row (adult-site filter, Incognito); underline tabs; activity bars in the chart palette; site drawer. |
 | **Horae** (Homepage, `horae/homepage`) | themed | `deploy.sh horae-theme` bundles `suite.css` + `overrides.css` into Homepage's `custom.css`, and `suite.js` + `mount.js` into `custom.js` (masthead, search). Only restyle Homepage's own classes in `overrides.css`. |
 | **Home Assistant** (`horae/homeassistant`) | themed | The **Olympus** theme (`themes/olympus.yaml`): marble background, white cards with the ring shadow, ink header and sidebar, Aegean toggles, status colours, chart palette, sun-gold "on" lights, Inter via `www/olympus/fonts.js`. Light only (no `modes:`). Install: `./deploy.sh horae-ha`, then `sudo bash ~/olympus-ha/ha-theme.sh` on horae. Dashboards: tile cards, no custom CSS cards. |
 | **Pi-hole** (admin) | built-in theme | `default-light` via `FTLCONF_webserver_interface_theme` in `horae/stack/docker-compose.yml`. Don't fork its UI. |

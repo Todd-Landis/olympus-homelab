@@ -163,7 +163,10 @@ readable. No dark mode.
    whose? Same name for both = merged. On Apple devices, Private Wi-Fi Address = **Fixed** keeps one MAC per network.
 8. **Wi-Fi column** fills in as devices reconnect (joins right after the router reboot weren't logged).
 9. Prefer `horae` or `horae.home` over `horae.local` (mDNS resolved only partly on the old Windows laptop).
-10. Possible: login on Olympus/Network if the tailnet is ever shared. Network logs **everyone's** browsing at home
+10. **Network Watch switches** (2026-10-19, see Content categories): `./deploy.sh netwatch`, then `./deploy.sh horae-stack` and on
+   horae `sudo bash -c 'cd /opt/pihub && docker compose up -d'` (recreates Pi-hole with app_sudo on and its text log off;
+   DNS blips for a few seconds). Until then the Incognito switch answers with how to do exactly that.
+11. Possible: login on Olympus/Network if the tailnet is ever shared (more so now Network Watch has the two switches). Network logs **everyone's** browsing at home
    (e.g. Connor's S24, guests); Todd was told it's fair to let household members know.
 
 Done today (details above): router move, Dragonwilds forwards, history clean-up, Odysseus auto-start, branch merge +
@@ -207,6 +210,21 @@ Done today (details above): router move, Dragonwilds forwards, history clean-up,
   `~/pihole-watch/data/` on helios) for Todd to delete. Blocked attempts are still logged from then on, marked blocked:
   **Todd's decision (2026-10-19), so he can see if someone tried.** Don't add filtering or nightly purges for them.
   Tested against a fake Pi-hole v6 DB built from FTL's schema and against the dev stack's Network Watch DB.
+- **Switches on Network Watch (added 2026-10-19)**, both for every device, both through Pi-hole's API with Network Watch's
+  app password (`GET /api/controls`, `POST /api/filter {on}`, `POST /api/incognito {on}`):
+  - **Adult-site filter**: off takes the `https://nsfw.oisd.nl` list out of every Pi-hole group (its groups are saved in
+    `~/pihole-watch/data/controls.json`); on puts it back. The list itself stays *enabled*, on purpose: gravity only
+    downloads enabled lists, so a disabled one loses its sites at the next weekly update and blocks nothing when turned
+    back on. So in Pi-hole's Lists page "off" looks like an enabled list with no groups; use the switch, not Pi-hole's own
+    enable toggle. `./deploy.sh adult` puts it back in the Default group if it has none.
+  - **Incognito**: Pi-hole's privacy level 3 (`misc.privacylevel`), which records nothing: no query log, nothing in its
+    database, so nothing for Network Watch to copy. Blocking keeps working. Raising the level is instant; lowering it
+    restarts Pi-hole's DNS for a few seconds (Network Watch waits up to 45 s for it). The level before (normally 0) and
+    the start time are in `controls.json`. Not covered: the router's Wi-Fi join/leave log (presence, not lookups).
+  - Needs `webserver.api.app_sudo=true` (an app password may change settings), set in `horae/stack/docker-compose.yml`
+    with `dns.queryLogging=false` (Pi-hole's raw text log of every lookup: Incognito couldn't pause it, and nothing here
+    reads it). Trade-off: Network Watch's app password can now change any Pi-hole setting, and anyone on the tailnet who
+    can open Network Watch can flip both switches (tailnet only, not the home Wi-Fi).
 
 ## Game servers
 

@@ -9,6 +9,7 @@ Stdlib only. Config via environment:
   PEOPLE_FILE         JSON {"device name": ["person", ...]} (default people.json next to NAMES_FILE)
   CATEGORY_LISTS      JSON {"category": "list URL or file path"} of domain lists to tag lookups with
                       (default: adult = OISD NSFW). Lists refresh daily into <data>/categories/.
+  ADULT_LIST          the Pi-hole blocklist the adult-site filter switch turns on and off (default https://nsfw.oisd.nl)
   TS_SOCKET           tailscaled socket, used to name tailnet devices
   RETENTION_DAYS      days of history to keep (default 30)
   SYNC_SECONDS        how often to pull from Pi-hole (default 60)
@@ -93,7 +94,9 @@ def base_domain(domain):
 # ---------------------------------------------------------------- Pi-hole API
 
 class PiHoleError(Exception):
-    pass
+    def __init__(self, message, code=None):
+        super().__init__(message)
+        self.code = code  # Pi-hole's HTTP status; None when it couldn't be reached
 
 
 class PiHole:
@@ -141,9 +144,11 @@ class PiHole:
                     pass
                 if e.code == 401:
                     self.sid = None
-                raise PiHoleError(f"Pi-hole {e.code}: {detail}") from None
+                raise PiHoleError(f"Pi-hole {e.code}: {detail}", e.code) from None
             except urllib.error.URLError as e:
                 raise PiHoleError(f"Can't reach Pi-hole: {e.reason}") from None
+            except (ConnectionError, TimeoutError, http.client.HTTPException) as e:  # cut off mid-reply (it restarts)
+                raise PiHoleError(f"Can't reach Pi-hole: {e}") from None
 
 
 # ---------------------------------------------------------------- device names
@@ -877,6 +882,120 @@ def api_unblock(ph, body):
     return {"ok": True}
 
 
+# ---------------------------------------------------------------- switches: the adult-site filter and Incognito
+# The filter is Pi-hole's adult-site list (./deploy.sh adult adds it). Off leaves the list enabled, so Pi-hole keeps
+# updating it, but takes it out of every group, so it blocks nothing; on puts it back. (Disabling the list instead
+# would drop its sites at the next weekly list update, and turning it on again would block nothing until the one after.)
+# Incognito is Pi-hole's privacy level 3: it records no lookups at all, so Network Watch has nothing to copy. Changing a
+# setting with an app password needs webserver.api.app_sudo (horae/stack/docker-compose.yml turns it on).
+
+ADULT_LIST = os.environ.get("ADULT_LIST", "https://nsfw.oisd.nl")
+CONTROLS_FILE = Path(DB_PATH).parent / "controls.json"  # when Incognito began; the groups and privacy level to go back to
+INCOGNITO_LEVEL = 3
+controls_lock = threading.Lock()
+
+
+def friendly(e):
+    if e.code == 403:
+        return PiHoleError("Pi-hole doesn't let Network Watch change settings yet. Run ./deploy.sh horae-stack on the Mac, "
+                           "then the sudo command it prints on horae.", 403)
+    return e
+
+
+def adult_list(ph):
+    path = "/lists/" + urllib.parse.quote(ADULT_LIST, safe="") + "?type=block"
+    try:
+        found = ph.call("GET", path).get("lists", [])
+    except PiHoleError as e:
+        if e.code != 404:
+            raise
+        found = []
+    return path, next((x for x in found if x.get("address") == ADULT_LIST), None)
+
+
+def privacy_level(ph):
+    return int(ph.call("GET", "/config/misc/privacylevel")["config"]["misc"]["privacylevel"])
+
+
+def api_controls(ph):
+    _, lst = adult_list(ph)
+    incognito = privacy_level(ph) >= INCOGNITO_LEVEL
+    saved = read_json(CONTROLS_FILE, {})
+    if not incognito and "incognito_since" in saved:  # turned off in Pi-hole's own settings
+        with controls_lock:
+            saved = read_json(CONTROLS_FILE, {})
+            if saved.pop("incognito_since", None) is not None:
+                write_json(CONTROLS_FILE, saved)
+    return {
+        "filter": {"installed": lst is not None, "on": bool(lst and lst.get("enabled") and lst.get("groups")),
+                   "sites": lst and (lst.get("abp_entries") or lst.get("number")) or 0},
+        "incognito": {"on": incognito, "since": saved.get("incognito_since")},
+    }
+
+
+def api_filter(ph, body):
+    on = body.get("on")
+    if not isinstance(on, bool):
+        raise ValueError("on must be true or false")
+    with controls_lock:
+        path, lst = adult_list(ph)
+        if lst is None:
+            raise ValueError("Pi-hole doesn't have the adult-site list. Add it once with ./deploy.sh adult")
+        saved = read_json(CONTROLS_FILE, {})
+        if on:
+            groups = lst.get("groups") or saved.get("filter_groups") or [0]  # 0: Pi-hole's Default group
+        else:
+            saved["filter_groups"] = lst.get("groups") or saved.get("filter_groups") or [0]
+            write_json(CONTROLS_FILE, saved)
+            groups = []
+        try:
+            ph.call("PUT", path, {"comment": lst.get("comment"), "groups": groups, "type": "block",
+                                  "enabled": True if on else bool(lst.get("enabled"))})
+        except PiHoleError as e:
+            raise friendly(e) from None
+        _, after = adult_list(ph)
+        if bool(after and after.get("enabled") and after.get("groups")) != on:
+            raise PiHoleError("Pi-hole didn't take the change. Check the list on Pi-hole's Lists page.")
+    log.info("adult-site filter %s", "on" if on else "off")
+    return api_controls(ph)
+
+
+def api_incognito(ph, body):
+    on = body.get("on")
+    if not isinstance(on, bool):
+        raise ValueError("on must be true or false")
+    with controls_lock:
+        saved = read_json(CONTROLS_FILE, {})
+        level = privacy_level(ph)
+        if on and level < INCOGNITO_LEVEL:
+            try:
+                ph.call("PATCH", "/config", {"config": {"misc": {"privacylevel": INCOGNITO_LEVEL}}})  # applies at once
+            except PiHoleError as e:
+                raise friendly(e) from None
+            saved.update(incognito_since=time.time(), privacy_restore=level)
+        elif not on and level >= INCOGNITO_LEVEL:
+            back = min(int(saved.get("privacy_restore") or 0), INCOGNITO_LEVEL - 1)
+            try:  # recording again means a restart: Pi-hole may drop this reply, and DNS pauses for a few seconds
+                ph.call("PATCH", "/config", {"config": {"misc": {"privacylevel": back}}})
+            except PiHoleError as e:
+                if e.code is not None:
+                    raise friendly(e) from None
+            deadline = time.time() + 45
+            while True:
+                try:
+                    if privacy_level(ph) < INCOGNITO_LEVEL:
+                        break
+                except PiHoleError:
+                    pass  # still restarting
+                if time.time() > deadline:
+                    raise PiHoleError("Pi-hole hasn't come back from its restart. Check horae: docker logs --tail 50 pihole")
+                time.sleep(2)
+            saved.pop("incognito_since", None)
+        write_json(CONTROLS_FILE, saved)
+    log.info("incognito %s", "on" if on else "off")
+    return api_controls(ph)
+
+
 # ---------------------------------------------------------------- HTTP
 
 class Handler(BaseHTTPRequestHandler):
@@ -922,6 +1041,7 @@ class Handler(BaseHTTPRequestHandler):
                     "/api/query": lambda: api_query(params, f.names),
                     "/api/registry": lambda: api_registry(f.names),
                     "/api/blocklist": lambda: api_blocklist(ph),
+                    "/api/controls": lambda: api_controls(ph),
                 }
             else:
                 # JSON-only POSTs: browsers won't send these cross-site without a CORS preflight.
@@ -932,6 +1052,8 @@ class Handler(BaseHTTPRequestHandler):
                     "/api/block": lambda: api_block(ph, body),
                     "/api/unblock": lambda: api_unblock(ph, body),
                     "/api/registry": lambda: api_registry_save(names, body),
+                    "/api/filter": lambda: api_filter(ph, body),
+                    "/api/incognito": lambda: api_incognito(ph, body),
                 }
             if url.path not in routes:
                 return self._send(404, {"error": "not found"})

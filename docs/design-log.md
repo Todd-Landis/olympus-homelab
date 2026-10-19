@@ -3,6 +3,26 @@
 Dated notes from `/ui-critique`, `/ui-audit` and `/ui-polish`: what was found, what changed, what was decided.
 Newest first. Read the last few entries before starting UI work so the same ground isn't covered twice.
 
+## 2026-10-19 — switches on Network Watch (adult-site filter, Incognito)
+
+Asked for: a way to turn the adult-site filter on and off from Network Watch, and an Incognito switch that stops
+traffic being logged. New shared component: the **switch** (`.switch`, DESIGN.md §7).
+
+| Decision | Why |
+| --- | --- |
+| A row of two switch cards under the filters, above the tabs | They change the network for everyone, so they're visible on every tab, but kept apart from the view filters (a checkbox only changes what you see) |
+| The switch moves when Pi-hole has made the change; meanwhile `aria-busy` and the line under the title says what is happening | Turning Incognito off restarts Pi-hole (several seconds): an optimistic flip would lie. The `:active` press scale still answers at once |
+| Off track is ink at 46% (3.5:1 on white), not the usual pale grey | WCAG 1.4.11: the state has to read without colour; the thumb's side does the rest |
+| 40×24 with a 44px-tall hit area, and the whole card is the target | `/ui-audit` warned at 38×22 (under 24px on phones) |
+| Confirm before turning the filter off, turning Incognito on, and turning it off (DNS pauses) | Each affects every device; turning the filter back on is safe and doesn't ask |
+| Keyboard (Space/Enter) and Ctrl K flip without the slide (`Suite.instant`) | Motion gate: keyboard-triggered changes never animate |
+| While Incognito is on, the masthead pill reads "Incognito" on a grey dot, and the status line says since when | It's neither live nor broken; `Suite.setLive` takes a dot class for that |
+
+Checks: `/ui-audit` clean across 38 state×viewport runs (two new states: `netwatch-incognito`, `netwatch-no-filter`,
+driven by a fake Pi-hole in `dev/fakes.py`); motion-lint clean. Flows driven end to end: mouse flip with confirm,
+Space flip (instant, focus kept, no confirm), Ctrl K command, Incognito off through a simulated restart, and the
+"app_sudo not set" error toast.
+
 ## 2026-10-15 — design refresh and the rulebook (all sites, Home Assistant included)
 
 Asked for: a better design built with Emil Kowalski's skills (github.com/emilkowalski/skills, 15 skills read; the

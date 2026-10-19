@@ -5,8 +5,11 @@
   - a scripted Ollama: picks a tool from keywords in the question, then answers in one sentence.
     It is NOT a model; it only exists so chat pages render real tiles. Use the real one to judge answers.
   - a seeded Network Watch database: 7 days, four devices, three people, a daily and weekly rhythm
+  - a Pi-hole API with just enough for Network Watch: no new lookups, your blocks, the adult-site list and the
+    privacy level behind its two switches. Lowering the privacy level "restarts" it: 3 s of dropped connections.
+    POST /api/__reset {"app_sudo": false, "installed": false, ...} sets up a state (dev/ui/states.mjs uses it).
 
-usage: fakes.py <run-dir>      (writes <run-dir>/watch.db and serves on 127.0.0.1:9301/9302/9311)
+usage: fakes.py <run-dir>      (writes <run-dir>/watch.db and serves on 127.0.0.1:9301/9302/9303/9311)
 """
 import json
 import math
@@ -14,6 +17,7 @@ import random
 import sqlite3
 import sys
 import time
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
@@ -126,6 +130,85 @@ ANSWERS = {
 }
 
 
+ADULT_LIST = "https://nsfw.oisd.nl"
+PIHOLE_START = {"app_sudo": True, "installed": True, "enabled": True, "groups": [0], "privacylevel": 0}
+
+
+class PiHole(BaseHTTPRequestHandler):
+    state = dict(PIHOLE_START)
+    deny = {"exact": [], "regex": [{"domain": r"(\.|^)tiktok\.com$", "comment": "Blocked from pihole-watch", "enabled": True, "date_added": NOW - 86400 * 3}]}
+    down_until = 0
+
+    def log_message(self, *a):
+        pass
+
+    def _go(self, method):
+        if time.time() < PiHole.down_until:  # restarting: hang up without a reply
+            self.close_connection = True
+            return
+        url = urllib.parse.urlparse(self.path)
+        parts = url.path.split("/")[2:]  # after /api/
+        n = int(self.headers.get("Content-Length") or 0)
+        body = json.loads(self.rfile.read(n) or b"{}") if n else {}
+        st, lst_path = PiHole.state, "/api/lists/" + urllib.parse.quote(ADULT_LIST, safe="")
+        if url.path == "/api/auth":
+            return reply(self, {"session": {"valid": True, "sid": "dev-sid"}})
+        if url.path == "/api/__reset":
+            PiHole.state = {**PIHOLE_START, **body}
+            PiHole.down_until = 0
+            return reply(self, PiHole.state)
+        if url.path == "/api/queries":
+            return reply(self, {"queries": [], "cursor": None})
+        if url.path == "/api/network/devices":
+            return reply(self, {"devices": []})
+        if parts[:2] == ["domains", "deny"] and len(parts) >= 3:
+            kind = parts[2]
+            if method == "GET":
+                return reply(self, {"domains": PiHole.deny[kind]})
+            if method == "POST":
+                PiHole.deny[kind].insert(0, {**body, "date_added": time.time()})
+                return reply(self, {"domains": PiHole.deny[kind][:1]}, 201)
+            if method == "DELETE":
+                d = urllib.parse.unquote(parts[3])
+                PiHole.deny[kind] = [x for x in PiHole.deny[kind] if x["domain"] != d]
+                return reply(self, {})
+        if url.path == lst_path:
+            if not st["installed"]:
+                return reply(self, {"lists": []})
+            if method == "PUT":
+                st.update(enabled=bool(body.get("enabled")), groups=list(body.get("groups") or []))
+            return reply(self, {"lists": [{"address": ADULT_LIST, "comment": "Adult sites (OISD NSFW), added by adult-content.sh",
+                                           "groups": st["groups"], "enabled": st["enabled"], "type": "block", "number": 473658,
+                                           "abp_entries": 473658, "status": 2}]})
+        if url.path == "/api/config/misc/privacylevel":
+            return reply(self, {"config": {"misc": {"privacylevel": st["privacylevel"]}}})
+        if url.path == "/api/config" and method == "PATCH":
+            if not st["app_sudo"]:
+                return reply(self, {"error": {"key": "forbidden", "message": "Unable to change configuration (read-only)"}}, 403)
+            level = body["config"]["misc"]["privacylevel"]
+            lower = level < st["privacylevel"]
+            st["privacylevel"] = level
+            if lower:  # the real one restarts to read its history back in
+                PiHole.down_until = time.time() + 3
+            return reply(self, {"config": {"misc": {"privacylevel": level}}})
+        return reply(self, {"error": {"key": "not_found", "message": "Not found"}}, 404)
+
+    def do_GET(self):
+        self._go("GET")
+
+    def do_POST(self):
+        self._go("POST")
+
+    def do_PUT(self):
+        self._go("PUT")
+
+    def do_PATCH(self):
+        self._go("PATCH")
+
+    def do_DELETE(self):
+        self._go("DELETE")
+
+
 def seed_network(path):
     """A week of lookups with a daily rhythm (quiet nights, busy evenings) and per-device habits."""
     path.unlink(missing_ok=True)
@@ -187,6 +270,7 @@ if __name__ == "__main__":
         (RUN / "people.json").write_text(json.dumps({"Todd's iPhone": ["Todd"], "desktop-ajq2ikv": ["Todd", "Alex"], "Sam's iPad": ["Sam"]}, indent=2))
     serve(9301, agent("helios"))
     serve(9302, agent("horae"))
+    serve(9303, PiHole)
     serve(9311, Ollama)
     print(f"fakes up: {n} lookups seeded", flush=True)
     while True:

@@ -87,9 +87,10 @@
     tick(); setInterval(tick, 1000 * 15);
     drawSky(); setInterval(drawSky, 60000);
   }
+  // ok: true (live), false (trouble), or a dot class for a state that is neither: setLive("off", "Incognito")
   function setLive(ok, text) {
-    const el = $("#suite-live");
-    if (el) el.innerHTML = `<span class="dot ${ok ? "ok live" : "bad"}"></span>${esc(text || (ok ? "Live" : "Reconnecting"))}`;
+    const el = $("#suite-live"), dot = typeof ok === "string" ? ok : ok ? "ok live" : "bad";
+    if (el) el.innerHTML = `<span class="dot ${dot}"></span>${esc(text || (ok === true ? "Live" : "Reconnecting"))}`;
   }
 
   // ---------------------------------------------------------------- toast
