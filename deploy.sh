@@ -64,7 +64,8 @@ horae_ha() {
 reach() {  # fail before changing anything if a machine can't be reached
   local h
   for h in "$@"; do
-    ssh -o ConnectTimeout=8 -o BatchMode=yes "$h" true 2>/dev/null || {
+    # twice: the Mac's Tailscale often drops the first packets after being idle, then answers
+    ssh -o ConnectTimeout=8 -o BatchMode=yes "$h" true 2>/dev/null || ssh -o ConnectTimeout=8 -o BatchMode=yes "$h" true 2>/dev/null || {
       echo "Can't reach $h over SSH ($(ssh -G "$h" | awk '/^hostname /{print $2}')). Is Tailscale connected on this Mac (menu bar icon)?"; exit 1; }
   done
 }
