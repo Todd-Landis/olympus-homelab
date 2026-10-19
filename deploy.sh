@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Deploy from this repo to the servers over Tailscale/SSH.
-#   ./deploy.sh olympus | netwatch | horae-agent | horae-stack | horae-theme | horae-ha | hephaestus-agent | all
+#   ./deploy.sh olympus | netwatch | horae-agent | horae-stack | horae-theme | horae-ha | hephaestus-agent | adult | all
 # The shared design in suite/ is copied into each app here, so edit it in one place.
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -18,7 +18,7 @@ olympus() {
 }
 netwatch() {
   scp -q pihole-watch/docker-compose.yml helios:pihole-watch/
-  scp -q pihole-watch/app/app.py helios:pihole-watch/app/
+  scp -q pihole-watch/app/app.py pihole-watch/app/purge.py helios:pihole-watch/app/
   scp -q pihole-watch/app/static/index.html suite/suite.css suite/suite.js helios:pihole-watch/app/static/
   ssh helios 'cd ~/pihole-watch && docker compose up -d && docker restart pihole-watch >/dev/null'
   echo "network watch: deployed"
@@ -61,6 +61,21 @@ horae_ha() {
   scp -q horae/homeassistant/themes/olympus.yaml horae/homeassistant/www/olympus/fonts.js horae/scripts/ha-theme.sh synestri@horae:olympus-ha/
   echo "home assistant theme: files copied. Apply on the Pi:  ssh synestri@horae, then  sudo bash ~/olympus-ha/ha-theme.sh"
 }
+adult() {
+  # Adult sites: remove every lookup of them from Pi-hole's and Network Watch's history for good, then block them.
+  # One list for all of it: the copy Network Watch tags "adult" with (OISD NSFW), so both forget exactly the same sites.
+  scp -q helios:pihole-watch/data/categories/adult.txt build/adult.txt
+  ssh synestri@horae 'mkdir -p ~/olympus-adult'
+  scp -q horae/scripts/adult-content.sh build/adult.txt synestri@horae:olympus-adult/
+  rm -f build/adult.txt
+  # Pi-hole first: Network Watch re-reads the last minute from it on start. Asks for the Pi's sudo password.
+  ssh -t synestri@horae 'sudo bash ~/olympus-adult/adult-content.sh'
+  scp -q pihole-watch/app/purge.py helios:pihole-watch/app/
+  ssh helios 'cd ~/pihole-watch && docker compose stop pihole-watch >/dev/null 2>&1 &&
+    docker compose run --rm --no-deps --name pihole-watch-purge pihole-watch python -u purge.py adult; rc=$?; docker compose up -d pihole-watch >/dev/null 2>&1; exit $rc'
+  echo "adult sites: gone from history, blocked from now on. Backups of both databases as they were are listed above;"
+  echo "  delete them once you're happy: on helios  rm ~/pihole-watch/data/watch.db.before-adult-purge-*  and on horae the sudo rm shown above."
+}
 
 case "${1:-}" in
   olympus) olympus ;;
@@ -69,7 +84,8 @@ case "${1:-}" in
   horae-stack) horae_stack ;;
   horae-theme) horae_theme ;;
   horae-ha) horae_ha ;;
+  adult) adult ;;
   hephaestus-agent) hephaestus_agent ;;
   all) olympus; netwatch; horae_agent; horae_theme ;;
-  *) echo "usage: $0 olympus|netwatch|horae-agent|horae-stack|horae-theme|horae-ha|hephaestus-agent|all"; exit 1 ;;
+  *) echo "usage: $0 olympus|netwatch|horae-agent|horae-stack|horae-theme|horae-ha|hephaestus-agent|adult|all"; exit 1 ;;
 esac

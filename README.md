@@ -35,7 +35,7 @@ pihole-watch/       Network Watch: syncs Pi-hole's query log into SQLite, serves
 suite/              shared CSS/JS (+ horae-specific overrides.css / mount.js); vendor/ = ECharts
 horae/
   scripts/          pi-setup.sh (stack install), pi-extras.sh (logs, backups, Tailscale),
-                    pihole-hostnet.sh, exit-node.sh, rename-horae.sh, matter-setup.sh, ha-theme.sh
+                    pihole-hostnet.sh, exit-node.sh, rename-horae.sh, matter-setup.sh, ha-theme.sh, adult-content.sh
   stack/            /opt/pihub/docker-compose.yml (Pi-hole, Home Assistant, Matter server, Homepage)
   homepage/         Homepage config (services, widgets, settings)
   homeassistant/    Olympus theme for Home Assistant (themes/olympus.yaml, www/olympus/fonts.js)
@@ -56,6 +56,7 @@ deploy.sh           push changes to the servers
 ./deploy.sh horae-stack   # /opt/pihub compose (Pi-hole, HA, Matter) + matter-setup.sh
 ./deploy.sh horae-theme   # Homepage theme + config on horae
 ./deploy.sh horae-ha      # Home Assistant theme files to horae; then on horae: sudo bash ~/olympus-ha/ha-theme.sh
+./deploy.sh adult         # adult sites: purge them from Pi-hole's and Network Watch's history, then block them (asks for the Pi's sudo password)
 ./deploy.sh hephaestus-agent  # Olympus agent on hephaestus (only while it's in Ubuntu; not in "all")
 ./deploy.sh all
 ```

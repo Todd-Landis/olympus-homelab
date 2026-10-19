@@ -153,13 +153,15 @@ readable. No dark mode.
    - Left alone (HomeKit-only, no HA path without leaving Apple Home): Eve Flare, Eve Water Guard, Aqara G2H Pro and Back Patio
      cameras, Logitech Circle View doorbell, Dreame vacuum.
    - Then a long-lived token for an HA widget; Todd saves it on the server himself.
-6. **Unidentified devices** in Network (`Device ·16:0c`, `Device ·5e:c5`, `Device ·5a:4e`, `virtual interface ·00:00`, the TP-Link /
+6. **Adult sites**: run `./deploy.sh adult` from the Mac (see "Content categories"), then delete the two backups it names.
+   Open question for Todd: keep logging blocked attempts (useful to see who tried), or drop them.
+7. **Unidentified devices** in Network (`Device ·16:0c`, `Device ·5e:c5`, `Device ·5a:4e`, `virtual interface ·00:00`, the TP-Link /
    Espressif / AMPAK / Logitech ones): name them by MAC (Olympus Dashboard or `names.json`) once Todd knows what they are.
    Also the splits from 2026-10-15: is `Apple Watch ·c0:1a` / `·3a:23` one watch (rotating address) or two? Which `iPad` is
    whose? Same name for both = merged. On Apple devices, Private Wi-Fi Address = **Fixed** keeps one MAC per network.
-7. **Wi-Fi column** fills in as devices reconnect (joins right after the router reboot weren't logged).
-8. Prefer `horae` or `horae.home` over `horae.local` (mDNS resolved only partly on the old Windows laptop).
-9. Possible: login on Olympus/Network if the tailnet is ever shared. Network logs **everyone's** browsing at home
+8. **Wi-Fi column** fills in as devices reconnect (joins right after the router reboot weren't logged).
+9. Prefer `horae` or `horae.home` over `horae.local` (mDNS resolved only partly on the old Windows laptop).
+10. Possible: login on Olympus/Network if the tailnet is ever shared. Network logs **everyone's** browsing at home
    (e.g. Connor's S24, guests); Todd was told it's fair to let household members know.
 
 Done today (details above): router move, Dragonwilds forwards, history clean-up, Odysseus auto-start, branch merge +
@@ -194,8 +196,14 @@ Done today (details above): router move, Dragonwilds forwards, history clean-up,
   to `~/pihole-watch/data/categories/`; the last good copy is kept if a download fails. Every domain seen is tagged
   once in the `domcat` table (a domain matches if it or a parent domain is listed). `/api/categories` shows list size,
   last update, errors and how many seen domains matched. The chat's network query takes `category: "adult"`.
-- It matches DNS lookups, not page views: ads, previews and embeds can trigger them. Pi-hole could also *block* the same
-  list (add it as an adlist in Pi-hole) if that's ever wanted; this only reports.
+- It matches DNS lookups, not page views: ads, previews and embeds can trigger them.
+- **Blocking and purging (added 2026-10-19):** `./deploy.sh adult` runs `horae/scripts/adult-content.sh` on horae (sudo):
+  it removes every adult lookup from Pi-hole's query DB (stopped for about a minute, rows overwritten and the file compacted,
+  container recreated so its raw text logs go too), then adds `https://nsfw.oisd.nl` (the same OISD list, Adblock format, so
+  subdomains are blocked too) as a Pi-hole blocklist and updates gravity. Then `pihole-watch/app/purge.py` removes the
+  same sites from Network Watch's DB and its domcat tags. Both leave a backup of the DB as it was (root-only on horae,
+  `~/pihole-watch/data/` on helios) for Todd to delete. Blocked attempts are still logged from then on, marked blocked.
+  Tested against a fake Pi-hole v6 DB built from FTL's schema and against the dev stack's Network Watch DB.
 
 ## Game servers
 
