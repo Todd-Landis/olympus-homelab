@@ -90,7 +90,8 @@ adult() {
   echo "== [3/3] Network Watch on helios"
   adult_netwatch
   echo "adult sites: gone from history, blocked from now on. Backups of both databases as they were are listed above;"
-  echo "  delete them once you're happy: on helios  rm ~/pihole-watch/data/watch.db.before-adult-purge-*  and on horae the sudo rm shown above."
+  echo "  delete them once you're happy:  ssh helios 'rm -v ~/pihole-watch/data/watch.db.before-adult-purge-*'"
+  echo "                                   ssh -t horae \"sudo sh -c 'rm -v /root/pihole-FTL.db.before-adult-purge-*'\""
 }
 adult_netwatch() {
   # Network Watch's part alone (run after Pi-hole's): ./deploy.sh adult-netwatch

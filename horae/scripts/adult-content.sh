@@ -111,7 +111,8 @@ PY
   trap - ERR
   wait_for_pihole
   echo "   Backup of the database as it was: $BACKUP (it still holds the removed lookups)."
-  echo "   Once you're happy, delete it:  sudo rm $BACKUP*"
+  # root expands the *: your own shell can't look inside /root, so "sudo rm /root/...*" finds nothing
+  echo "   Once you're happy, delete it:  sudo sh -c 'rm -v $BACKUP*'"
 }
 
 block() {

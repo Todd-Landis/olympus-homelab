@@ -153,10 +153,10 @@ readable. No dark mode.
    - Left alone (HomeKit-only, no HA path without leaving Apple Home): Eve Flare, Eve Water Guard, Aqara G2H Pro and Back Patio
      cameras, Logitech Circle View doorbell, Dreame vacuum.
    - Then a long-lived token for an HA widget; Todd saves it on the server himself.
-6. **Adult sites** (2026-10-19): Pi-hole's part is done (506 lookups of 72 sites purged; 473,658 sites blocked, checked with
-   `dig @192.168.50.2` → `0.0.0.0`). Still to do: `./deploy.sh adult-netwatch` for Network Watch's copy (helios was unreachable
-   over Tailscale from the Mac at the time), then delete both backups (`sudo rm /root/pihole-FTL.db.before-adult-purge-*` on
-   horae, `rm ~/pihole-watch/data/watch.db.before-adult-purge-*` on helios).
+6. **Adult sites** (2026-10-19): done. Pi-hole: 506 lookups of 72 sites purged, 473,658 sites blocked (`dig @192.168.50.2`
+   → `0.0.0.0`). Network Watch: 507 lookups of 56 sites purged; its backup deleted. Left: the Pi-hole backup, if
+   `ssh -t horae "sudo sh -c 'ls /root/pihole-FTL.db.before-adult-purge-*'"` still lists it, delete it the same way with `rm -v`
+   (root has to expand the `*`: a plain `sudo rm /root/…*` finds nothing).
 7. **Unidentified devices** in Network (`Device ·16:0c`, `Device ·5e:c5`, `Device ·5a:4e`, `virtual interface ·00:00`, the TP-Link /
    Espressif / AMPAK / Logitech ones): name them by MAC (Olympus Dashboard or `names.json`) once Todd knows what they are.
    Also the splits from 2026-10-15: is `Apple Watch ·c0:1a` / `·3a:23` one watch (rotating address) or two? Which `iPad` is
