@@ -64,13 +64,22 @@ horae_ha() {
 adult() {
   # Adult sites: remove every lookup of them from Pi-hole's and Network Watch's history for good, then block them.
   # One list for all of it: the copy Network Watch tags "adult" with (OISD NSFW), so both forget exactly the same sites.
-  scp -q helios:pihole-watch/data/categories/adult.txt build/adult.txt
-  ssh synestri@horae 'mkdir -p ~/olympus-adult'
-  scp -q horae/scripts/adult-content.sh build/adult.txt synestri@horae:olympus-adult/
+  # Files go over plain ssh (cat), not scp: macOS' scp failed on the download with a bare "Connection closed".
+  echo "== [1/3] Copy the script and the list to horae"
+  ssh synestri@horae 'mkdir -p ~/olympus-adult && rm -f ~/olympus-adult/adult.txt'
+  ssh synestri@horae 'cat > ~/olympus-adult/adult-content.sh' < horae/scripts/adult-content.sh
+  if ssh helios 'cat ~/pihole-watch/data/categories/adult.txt' > build/adult.txt && [[ -s build/adult.txt ]]; then
+    ssh synestri@horae 'cat > ~/olympus-adult/adult.txt' < build/adult.txt
+    echo "   Network Watch's copy of the list: $(wc -l < build/adult.txt | tr -d ' ') lines"
+  else
+    echo "   Network Watch has no copy of the list on helios; the Pi will download it itself."
+  fi
   rm -f build/adult.txt
-  # Pi-hole first: Network Watch re-reads the last minute from it on start. Asks for the Pi's sudo password.
+  echo "== [2/3] Pi-hole on horae (asks for the Pi's sudo password)"
+  # Pi-hole first: Network Watch re-reads the last minute from it on start.
   ssh -t synestri@horae 'sudo bash ~/olympus-adult/adult-content.sh'
-  scp -q pihole-watch/app/purge.py helios:pihole-watch/app/
+  echo "== [3/3] Network Watch on helios"
+  ssh helios 'cat > ~/pihole-watch/app/purge.py' < pihole-watch/app/purge.py
   ssh helios 'cd ~/pihole-watch && docker compose stop pihole-watch >/dev/null 2>&1 &&
     docker compose run --rm --no-deps --name pihole-watch-purge pihole-watch python -u purge.py adult; rc=$?; docker compose up -d pihole-watch >/dev/null 2>&1; exit $rc'
   echo "adult sites: gone from history, blocked from now on. Backups of both databases as they were are listed above;"
