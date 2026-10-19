@@ -11,8 +11,5 @@ built on Pi-hole (horae). Runs on helios, reachable at http://helios:8095 over T
   stays with the device when the router reuses the IP. Devices sharing a router hostname stay apart (`Mac ·35:c1`).
 - `pihole.secret` holds a Pi-hole **app password** (Pi-hole > Settings > Web interface / API >
   Configure app password). Never commit it.
-- Two switches above the tabs change Pi-hole for every device: the **adult-site filter** (Pi-hole's OISD NSFW
-  list in or out of its groups) and **Incognito** (Pi-hole's privacy level 3: nothing recorded). Incognito needs
-  `webserver.api.app_sudo` on Pi-hole (horae's compose file sets it). Details: `docs/HANDOFF.md`, Content categories.
 
 Update: `docker compose up -d --force-recreate`

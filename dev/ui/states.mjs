@@ -19,19 +19,6 @@ async function ask(page, ...questions) {
   await page.waitForTimeout(800);     // chart entrance animation
 }
 
-// Put the fake Pi-hole (dev/fakes.py) in a state, then load the page fresh. controls is Network Watch's own record.
-function pihole(state, then, controls = {}) {
-  return async (page) => {
-    await fetch("http://127.0.0.1:9303/api/__reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(state) });
-    const fs = await import("node:fs");
-    fs.writeFileSync(new URL("../.run/controls.json", import.meta.url), JSON.stringify(controls));
-    await page.reload({ waitUntil: "load" });
-    await page.waitForFunction(() => !document.querySelector("#sw-incognito-s").textContent.startsWith("Checking"));
-    await page.waitForTimeout(700);
-    if (then) await then(page);
-  };
-}
-
 export const states = [
   { name: "chat-empty", url: O + "/" },
   { name: "chat-status", url: O + "/", run: (p) => ask(p, "Is everything OK?") },
@@ -72,15 +59,12 @@ export const states = [
     name: "palette", url: O + "/#/dashboard",
     run: async (p) => { await p.waitForSelector(".host"); await p.click("#oracle-open"); await p.keyboard.type("ho"); await p.waitForTimeout(400); },
   },
-  { name: "netwatch", url: N + "/", run: pihole({}) },
-  { name: "netwatch-sites", url: N + "/", run: pihole({}, async (p) => { await p.click("#tabs [data-tab=sites]"); await p.waitForSelector("#sitetable tr[data-site]"); }) },
+  { name: "netwatch", url: N + "/" },
+  { name: "netwatch-sites", url: N + "/", run: async (p) => { await p.click("#tabs [data-tab=sites]"); await p.waitForSelector("#sitetable tr[data-site]"); } },
   {
     name: "netwatch-site", url: N + "/",
-    run: pihole({}, async (p) => { await p.click(".leaders li[data-site]"); await p.waitForSelector("#sheet .ledger"); await p.waitForTimeout(400); }),
+    run: async (p) => { await p.click(".leaders li[data-site]"); await p.waitForSelector("#sheet .ledger"); await p.waitForTimeout(400); },
   },
-  // the switches the other way round: filter off, Incognito on (since an hour ago)
-  { name: "netwatch-incognito", url: N + "/", run: pihole({ groups: [], privacylevel: 3 }, null, { incognito_since: Date.now() / 1000 - 3600 }) },
-  { name: "netwatch-no-filter", url: N + "/", run: pihole({ installed: false, app_sudo: false }) },
 ];
 
 // Stylesheets for the static motion check (ui-audit/scripts/motion-lint.mjs).

@@ -119,9 +119,7 @@ block() {
   echo "== Block adult sites =="
   docker exec pihole pihole-FTL sqlite3 /etc/pihole/gravity.db \
     "INSERT OR IGNORE INTO adlist (address, enabled, comment, type) VALUES ('$BLOCK_URL', 1, 'Adult sites (OISD NSFW), added by adult-content.sh', 0);
-     UPDATE adlist SET enabled = 1 WHERE address = '$BLOCK_URL' AND type = 0;
-     INSERT INTO adlist_by_group (adlist_id, group_id) SELECT id, 0 FROM adlist a WHERE address = '$BLOCK_URL' AND type = 0
-       AND NOT EXISTS (SELECT 1 FROM adlist_by_group g WHERE g.adlist_id = a.id);"   # Network Watch's switch off = no groups
+     UPDATE adlist SET enabled = 1 WHERE address = '$BLOCK_URL' AND type = 0;"
   echo "   Updating Pi-hole's lists (downloads them all; a minute or two on the Pi)"
   local out; out=$(mktemp)
   if ! docker exec pihole pihole -g >"$out" 2>&1; then

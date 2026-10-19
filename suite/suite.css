@@ -148,20 +148,6 @@ kbd { font: 500 11px var(--mono); color: var(--muted); padding: 1px 6px; border-
 .search-btn, .suite-nav a { transition: transform 160ms var(--ease-out), background-color 150ms ease, box-shadow 150ms ease, color 150ms ease; }
 .btn:active:not(:disabled), .search-btn:active, .suite-nav a:active { transform: scale(0.97); }
 
-/* switch: a setting that applies the moment it flips. <button class="switch" role="switch" aria-checked="true|false">.
-   On is an accent track; off is ink at 3.5:1, so the state reads without colour. Busy while the change is applied. */
-.switch { position: relative; flex: none; width: 40px; height: 24px; padding: 0; border: 0; border-radius: 99px; cursor: pointer;
-  background: rgba(23, 24, 28, .46); transition: background-color 150ms ease, transform 160ms var(--ease-out); }
-.switch::before { content: ""; position: absolute; inset: -10px -6px; }   /* a 44px-tall target for fingers */
-.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff;
-  box-shadow: 0 1px 2px rgba(23, 24, 28, .3); transition: transform 160ms var(--ease-out); }
-.switch[aria-checked="true"] { background: var(--accent); }
-.switch[aria-checked="true"]::after { transform: translateX(16px); }
-.switch:active:not(:disabled) { transform: scale(0.95); }
-.switch:disabled { opacity: .45; cursor: default; }
-.switch[aria-busy="true"] { opacity: .6; cursor: progress; }
-.switch.instant, .switch.instant::after { transition: none !important; }   /* flipped from the keyboard */
-
 /* tables */
 .ledger { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .ledger th { text-align: left; font: 500 12px var(--sans); color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
@@ -234,8 +220,6 @@ input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; m
   .btn.danger:hover:not(:disabled) { background-color: var(--bad-soft); box-shadow: 0 0 0 1px rgba(201, 60, 55, .3); }
   .ledger tr.click:hover td { background: var(--surface-2); }
   button.x:hover { background: var(--surface-3); color: var(--text); }
-  .switch:hover:not(:disabled) { background-color: rgba(23, 24, 28, .56); }
-  .switch[aria-checked="true"]:hover:not(:disabled) { background-color: #256abf; }
   input[type=search]:hover, select:hover, .field:hover { box-shadow: 0 0 0 1px rgba(23, 24, 28, .24), 0 1px 1px rgba(23, 24, 28, .03); }
 }
 
@@ -250,7 +234,7 @@ input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; m
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-property: opacity, color, background-color, border-color, box-shadow !important; }
   .dot.live { animation: none !important; }
-  .card.lift:hover, .card.lift:active, .btn:active, .search-btn:active, .suite-nav a:active, .switch:active { transform: none !important; }
+  .card.lift:hover, .card.lift:active, .btn:active, .search-btn:active, .suite-nav a:active { transform: none !important; }
   .drawer .sheet, .drawer.open .sheet { transform: none; opacity: 0; transition: opacity 200ms ease; }
   .drawer.open .sheet { opacity: 1; }
   .toast, .toast.show { transform: translate(-50%, 0); }

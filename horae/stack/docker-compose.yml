@@ -14,8 +14,6 @@ services:
       FTLCONF_dns_hosts: "192.168.50.2 horae.home"                    # local name for the Pi
       FTLCONF_dns_revServers: "true,192.168.50.0/24,192.168.50.1,lan" # ask the ASUS for LAN device names
       FTLCONF_webserver_interface_theme: "default-light"              # light, like every Olympus site (docs/DESIGN.md)
-      FTLCONF_webserver_api_app_sudo: "true"   # lets Network Watch's app password change settings (its Incognito switch)
-      FTLCONF_dns_queryLogging: "false"        # no raw text log of every lookup (pihole.log): Incognito couldn't pause it
     volumes:
       - ./pihole:/etc/pihole
     cap_add:

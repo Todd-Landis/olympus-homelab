@@ -24,9 +24,7 @@ cp suite/vendor/echarts-6.1.0.min.js olympus/hub/static/
 cp suite/suite.css suite/suite.js pihole-watch/app/static/
 $PY dev/fakes.py "$RUN" > "$RUN/fakes.log" 2>&1 & echo $! > "$RUN/fakes.pid"
 for _ in $(seq 40); do grep -q "fakes up" "$RUN/fakes.log" 2>/dev/null && break; sleep 0.25; done
-echo dev > "$RUN/pihole.secret"   # the fake Pi-hole takes any password
-(cd pihole-watch/app && DB_PATH="../../$RUN/watch.db" NAMES_FILE="../../$RUN/names.json" PORT=9295 \
-  PIHOLE_URL=http://127.0.0.1:9303 PIHOLE_SECRET_FILE="../../$RUN/pihole.secret" SYNC_SECONDS=5 \
+(cd pihole-watch/app && DB_PATH="../../$RUN/watch.db" NAMES_FILE="../../$RUN/names.json" PORT=9295 PIHOLE_SECRET_FILE=/nonexistent \
   CATEGORY_LISTS="{\"adult\": \"../../$RUN/adult-list.txt\"}" \
   exec $PY app.py) > "$RUN/netwatch.log" 2>&1 & echo $! > "$RUN/netwatch.pid"
 (cd olympus/hub && CONFIG=../../dev/config.json BIND=127.0.0.1 PORT=9290 exec $PY app.py) > "$RUN/olympus.log" 2>&1 & echo $! > "$RUN/olympus.pid"
