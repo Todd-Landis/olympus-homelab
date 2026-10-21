@@ -9,6 +9,7 @@
     {"id": "comfyui", "name": "ComfyUI", "host": "helios", "desc": "Images", "url": "https://helios.tail247b74.ts.net:8443", "check": "http://127.0.0.1:8188/"},
     {"id": "odysseus", "name": "Odysseus", "host": "helios", "url": "https://helios.tail247b74.ts.net:7443", "check": "http://127.0.0.1:7000/"},
     {"id": "netwatch", "name": "Network Watch", "host": "helios", "desc": "Browsing", "url": "http://helios:8095", "check": "http://100.88.170.59:8095/api/health"},
+    {"id": "registry", "name": "Registry Planner", "host": "helios", "desc": "Registry", "url": "http://helios:8097", "check": "http://100.88.170.59:8097/healthz"},
     {"id": "ollama-helios", "name": "Ollama", "host": "helios", "desc": "Models", "check": "http://127.0.0.1:11434/api/version"},
     {"id": "hubapi", "name": "Automation hub", "host": "helios", "desc": "API", "check": "http://127.0.0.1:8000/"},
     {"id": "ntfy", "name": "ntfy", "host": "helios", "desc": "Alerts", "check": "http://127.0.0.1:8091/v1/health"},
