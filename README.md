@@ -44,6 +44,7 @@ dev/                run everything locally against fake machines (dev/stack.sh),
 .claude/skills/     design skills: olympus-design, ui-audit, ui-critique, ui-polish, and Emil Kowalski's emil-design-eng,
                     animate, review-animations, find-animation-opportunities, animation-performance, apple-design,
                     mobile-native, break-ui (vendored, MIT; see docs/DESIGN.md)
+scripts/           wifi-switch.sh (headless Ubuntu Wi-Fi move), helios/ (Odysseus autostart), mac/wifi-drops.sh (daily drop report)
 deploy.sh           push changes to the servers
 ```
 
