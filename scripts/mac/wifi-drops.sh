@@ -61,7 +61,7 @@ while [ $# -ge 2 ]; do
 done
 
 say "Router log (the ASUS sends it to helios): lines about this Mac, last $DAYS days"
-if $SSH helios 'cat ~/pihole-watch/data/router.log.1 ~/pihole-watch/data/router.log 2>/dev/null' > "$TMP/router.log"; then
+if $SSH -n helios 'cat ~/pihole-watch/data/router.log.1 ~/pihole-watch/data/router.log 2>/dev/null' > "$TMP/router.log"; then
   echo "($(wc -l < "$TMP/router.log" | tr -d ' ') lines kept, from $(head -c 19 "$TMP/router.log"))"
   pat=$(printf '%s' "$MAC" | tr 'A-Z' 'a-z')
   [ -n "$LAN_IP" ] && pat="$pat|$LAN_IP[^0-9]"
@@ -129,7 +129,7 @@ while [ $# -ge 2 ]; do
 done
 SH
 echo "-- Pi-hole's own log in each window (restarts, warnings, errors)"
-$SSH horae "docker exec pihole sh -c 'cat /var/log/pihole/FTL.log.1 /var/log/pihole/FTL.log 2>/dev/null'" 2>/dev/null \
+$SSH -n horae "docker exec pihole sh -c 'cat /var/log/pihole/FTL.log.1 /var/log/pihole/FTL.log 2>/dev/null'" 2>/dev/null \
   | in_windows | grep -i -E "warn|err|crit|started|shutting|terminat|restart|reload|gravity|timeout|refused" | cut -c1-200 | tail -40
 
 say "Done. Paste everything above back to Claude."
