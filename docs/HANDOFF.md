@@ -177,8 +177,11 @@ readable. No dark mode.
      (`CorpDNS`, Override on), so a bad Tailscale route = no lookups = "Wi-Fi is down".
    - Also seen: bursts of the Mac re-requesting its DHCP address (113 in the 14:00 hour on 10-22, 14 at 23:00) with no
      disassociation, and macOS counting `L2DatapathStall` faults (9 by 10-20): the Mac's Wi-Fi data path stalling.
-   Next: the `now` check during an outage says which (link, Tailscale DNS, Pi-hole or internet). Quick test while
-   broken: turn Tailscale off and on (menu bar) instead of Wi-Fi; if that fixes it, it's the Tailscale route.
+   - **2026-10-23 ~12:45 it happened with Tailscale switched off** (Todd confirmed), fixed again only by toggling Wi-Fi:
+     so Tailscale isn't the cause; its route flipping on 10-23 01:15 was a symptom of the link stalling. macOS logged
+     a "poor link" session that started with BadRSSI, and has counted 10 Wi-Fi off/on toggles from Control Center.
+   Next: the `now` check during an outage (before toggling) says whether the Mac can still reach the router; then
+   the router's 5 GHz settings for 5016Shoreside and the Mac's side.
 
 Done today (details above): router move, Dragonwilds forwards, history clean-up, Odysseus auto-start, branch merge +
 `main` fast-forward, exit node.
