@@ -101,10 +101,15 @@ if [ "${1:-}" = link ]; then
       else if (index($0, "rxBeaconMbss=")) { bcn += val("rxBeaconMbss"); data += val("rxDataUcastMbss") }
     }
     END { flush() }'
-  echo "== Anything the Wi-Fi driver or macOS flagged in that time"
-  log show --style compact --start "$s" --end "$e" --predicate 'process == "kernel" OR process == "airportd" OR process == "wifid"' 2>/dev/null \
-    | grep -i -E "stall|watchdog|beacon ?lo(ss|st)|bcn ?lo|tx ?fail|reset|recover|link ?(down|lost)|disassoc|deauth|roam(ing)? (start|scan)|poorlink|badrssi" \
-    | grep -v -E "unsupported (get|set) ioctl|NSEntityDescription|RoamMO" | cut -c1-200 | head -40
+  echo "== What the Wi-Fi driver and macOS flagged in that time (stalls, resets, recoveries, link changes)"
+  log show --style compact --start "$s" --end "$e" --predicate 'process IN {"kernel", "airportd", "wifid", "configd"} AND (eventMessage CONTAINS[c] "stall" OR eventMessage CONTAINS[c] "datapath" OR eventMessage CONTAINS[c] "watchdog" OR eventMessage CONTAINS[c] "recover" OR eventMessage CONTAINS[c] "trap" OR eventMessage CONTAINS[c] "link down" OR eventMessage CONTAINS[c] "linkdown" OR eventMessage CONTAINS[c] "beacon lost" OR eventMessage CONTAINS[c] "disassoc" OR eventMessage CONTAINS[c] "network changed")' 2>/dev/null \
+    | grep -v -E "LQM|Coex Stats|p2p\.stats|setDataActiveWithInfraRTPeer|^Timestamp|^Filtering" | cut -c1-220 | head -40
+  echo "-- macOS's own running count of Wi-Fi faults (it prints them when a session ends; a stall count going up = a stall)"
+  log show --style compact --start "$s" --end "$e" --predicate 'process == "airportd"' 2>/dev/null \
+    | grep -E "FaultReason(L2DatapathStall|RxDataStall|DextCrashed|ArpFailure|DhcpFailure|BrokenBackhaul|LinkTest[A-Za-z]+Failure)[A-Za-z]* = [1-9]" | sort | uniq -c | head -12
+  echo "-- AirDrop/Continuity (AWDL) sharing the Wi-Fi radio with a nearby Apple device, per minute"
+  log show --style compact --start "$s" --end "$e" --predicate 'process == "kernel" AND eventMessage CONTAINS "setDataActiveWithInfraRTPeer"' 2>/dev/null \
+    | awk '$2 ~ /^[0-9][0-9]:/ { print substr($2, 1, 5) }' | uniq -c | awk '{ printf "  %s  %d times\n", $2, $1 }'
   exit 0
 fi
 

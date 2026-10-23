@@ -193,8 +193,12 @@ readable. No dark mode.
      the upstreams (8.8.8.8/8.8.4.4, the router for local names) were fast. No rate limiting in FTL.log (limit 1000).
      So a backup Pi-hole wouldn't have helped (Todd asked about one). The Mac was streaming YouTube and playing
      RuneScape at the time; it also keeps asking for `mask.icloud.com` (Private Relay, which Pi-hole blocks).
-   Next: what exactly stops working when it "cuts out" (which apps, what error, the Wi-Fi icon), and any network
-   filter/VPN apps on the Mac. `bash scripts/mac/wifi-drops.sh watch` (left running) notices
+   - Todd: when it cuts out, web pages, RuneScape and YouTube all stop; the Wi-Fi icon doesn't change; Private Relay
+     is off on the Mac; Safari. No network filters, proxies or VPNs besides Tailscale. Leading theory: the Mac's Wi-Fi
+     driver stalls on the receive side (frames reach the card, lookups still go out and get answered, nothing reaches
+     apps; the Mac re-asks twice as often at 12:46); macOS counts `L2DatapathStall` faults; toggling Wi-Fi restarts
+     the driver. AWDL (AirDrop/Continuity real-time peer) was active around then too.
+   Next: `wifi-drops.sh link 12:45` / `link 01:14` show the driver's stall events and fault counts at each outage. `bash scripts/mac/wifi-drops.sh watch` (left running) notices
    websites failing and logs the checks at that moment to `~/wifi-watch.log` (the quick check names a rate limit or a
    stuck lookup service).
 
