@@ -198,7 +198,13 @@ readable. No dark mode.
      driver stalls on the receive side (frames reach the card, lookups still go out and get answered, nothing reaches
      apps; the Mac re-asks twice as often at 12:46); macOS counts `L2DatapathStall` faults; toggling Wi-Fi restarts
      the driver. AWDL (AirDrop/Continuity real-time peer) was active around then too.
-   Next: `wifi-drops.sh link 12:45` / `link 01:14` show the driver's stall events and fault counts at each outage. `bash scripts/mac/wifi-drops.sh watch` (left running) notices
+   - **Confirmed (`wifi-drops.sh link`):** in the 01:14 outage, data arriving at the Mac fell from ~9,000 to ~500 frames
+     per 30 s from 01:08 and stayed there for 8 minutes while signal, router beacons and rates stayed normal; macOS's
+     own `FaultReasonL2DatapathStallCount` went from 9 (10-20) to 20 (10-23). AWDL had a "real-time peer" (a nearby
+     Apple device using Continuity) several times a minute through both outages, the usual trigger for these stalls.
+   Plan, one change at a time with `wifi-drops.sh watch` counting outages: (1) macOS update (26.6); (2) a day or two
+   with Handoff, AirDrop receiving, AirPlay Receiver and Universal Control off; (3) if still happening, Target Wake
+   Time off on the ASUS 5 GHz radio. No backup Pi-hole needed for this. `bash scripts/mac/wifi-drops.sh watch` (left running) notices
    websites failing and logs the checks at that moment to `~/wifi-watch.log` (the quick check names a rate limit or a
    stuck lookup service).
 
