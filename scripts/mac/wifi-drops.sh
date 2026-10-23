@@ -3,12 +3,59 @@
 # on helios), Network Watch and horae saw in a window around that time on each of the last few days.
 # Read-only: no sudo, changes nothing, prints nothing secret. Run on the Mac, from the repo:
 #   bash scripts/mac/wifi-drops.sh [HH:MM] [days]      (default 15:45, 3 days; the window is 1 hour either side)
+#   bash scripts/mac/wifi-drops.sh now                 while it's broken, before turning Wi-Fi off: 10 s of checks
 # Paste the whole output back. macOS ships bash 3.2: keep this script free of bash 4 features.
 set -u
-AT=${1:-15:45}
-DAYS=${2:-3}
 TS_IP=100.115.118.44   # this Mac's Tailscale address (docs/HANDOFF.md)
 TS=/Applications/Tailscale.app/Contents/MacOS/Tailscale
+
+if [ "${1:-}" = now ]; then
+  # Which layer is stuck? Each check uses only what it names, with a short timeout. Also saved to a file, since the
+  # internet may be down while this runs.
+  OUT=~/wifi-check-$(date +%Y%m%d-%H%M%S).txt
+  {
+    echo "== Quick check $(date '+%F %H:%M:%S')"
+    IF=$(networksetup -listallhardwareports | awk '/Wi-Fi/ { getline; print $2; exit }'); IF=${IF:-en0}
+    echo "Wi-Fi address: $(ipconfig getifaddr "$IF" 2>/dev/null || echo none) · DNS in use: $(scutil --dns | awk '/nameserver\[/ { print $3 }' | sort -u | tr '\n' ' ')"
+    ok() { printf '  %-4s %s\n' "$1" "$2"; }
+    run() {  # run "label" command...  ->  OK/FAIL plus the first line of output
+      local label=$1; shift
+      local out; out=$("$@" 2>&1 | head -1)
+      if [ -n "$out" ] && ! printf '%s' "$out" | grep -q -i -E "timed out|timeout|no reply|no servers|unreachable|error|failed| 0 packets received|100.0% packet loss|^000"; then
+        ok OK "$label: $out"; return 0
+      fi
+      ok FAIL "$label: ${out:-no answer}"; return 1
+    }
+    run "1 router over Wi-Fi (ping 192.168.50.1)" sh -c 'ping -c 2 -t 3 192.168.50.1 | grep -E "packets"'; R1=$?
+    run "2 horae over Wi-Fi (ping 192.168.50.2)" sh -c 'ping -c 2 -t 3 192.168.50.2 | grep -E "packets"'; R2=$?
+    run "3 Pi-hole straight over Wi-Fi (apple.com)" dig +time=2 +tries=1 +short @192.168.50.2 apple.com; R3=$?
+    run "4 Pi-hole through Tailscale, the Mac's normal way" dig +time=2 +tries=1 +short @100.100.100.100 apple.com; R4=$?
+    run "5 internet with no lookup (https://1.1.1.1)" curl -sS -o /dev/null --max-time 4 -w '%{http_code}' https://1.1.1.1; R5=$?
+    run "6 a website the normal way (https://www.apple.com)" curl -sS -o /dev/null --max-time 6 -w '%{http_code}' https://www.apple.com; R6=$?
+    [ -x "$TS" ] && run "7 Tailscale to horae" "$TS" ping -c 2 --timeout 3s horae
+    [ -x "$TS" ] && "$TS" status 2>/dev/null | grep -E "^100\.123\.23\.100" | sed 's/^/       path: /'
+    echo "-- what that means"
+    if [ "$R1" -ne 0 ]; then
+      echo "  The Mac says it's on Wi-Fi but can't even reach the router: the Wi-Fi link itself is stuck. That's the Mac's"
+      echo "  Wi-Fi (or the router's radio), not Pi-hole or Tailscale."
+    elif [ "$R4" -ne 0 ] && [ "$R3" -eq 0 ]; then
+      echo "  Wi-Fi and Pi-hole are fine; lookups that go through Tailscale fail. Tailscale's route to horae is the cause."
+    elif [ "$R3" -ne 0 ] && [ "$R4" -ne 0 ]; then
+      echo "  Pi-hole isn't answering at all (horae, or Pi-hole on it)."
+    elif [ "$R5" -ne 0 ]; then
+      echo "  Lookups work but the internet doesn't: the router's internet line (or the modem)."
+    elif [ "$R6" -ne 0 ]; then
+      echo "  Everything checked works except a normal website: send this to Claude as is."
+    else
+      echo "  Everything works right now. If it was broken a moment ago, it recovered on its own."
+    fi
+    echo "Saved to $OUT"
+  } 2>&1 | tee "$OUT"
+  exit 0
+fi
+
+AT=${1:-15:45}
+DAYS=${2:-3}
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 SSH="ssh -o ConnectTimeout=8 -o BatchMode=yes"
 

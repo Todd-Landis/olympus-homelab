@@ -165,6 +165,20 @@ readable. No dark mode.
 9. Prefer `horae` or `horae.home` over `horae.local` (mDNS resolved only partly on the old Windows laptop).
 10. Possible: login on Olympus/Network if the tailnet is ever shared. Network logs **everyone's** browsing at home
    (e.g. Connor's S24, guests); Todd was told it's fair to let household members know.
+11. **The Mac loses its connection for minutes at a time** (2026-10-22 15:43, 2026-10-23 ~01:13; Todd thought daily, but
+   it isn't tied to a time). Report: `bash scripts/mac/wifi-drops.sh [HH:MM] [days]`; while it's broken, before
+   toggling Wi-Fi: `bash scripts/mac/wifi-drops.sh now` (saves `~/wifi-check-*.txt`). Found so far:
+   - Not Pi-hole or horae (no restarts; nothing scheduled then), not the exit node (the Mac doesn't use one).
+   - The router saw no disconnect on 10-23 until Todd turned Wi-Fi off (macOS logged `ControlCenter`), and the Mac's
+     lookups kept reaching Pi-hole every minute: the Wi-Fi stayed up, something above it broke.
+   - horae's tailscaled flipped its route to the Mac every few seconds (01:15–01:17) between the Mac's LAN address,
+     the router's hairpin (`192.168.50.1:12867`) and the home public IP, and settled only after the Wi-Fi toggle. On
+     10-22 the Mac reached horae via the hairpin/public address, not the LAN. All the Mac's DNS goes through Tailscale
+     (`CorpDNS`, Override on), so a bad Tailscale route = no lookups = "Wi-Fi is down".
+   - Also seen: bursts of the Mac re-requesting its DHCP address (113 in the 14:00 hour on 10-22, 14 at 23:00) with no
+     disassociation, and macOS counting `L2DatapathStall` faults (9 by 10-20): the Mac's Wi-Fi data path stalling.
+   Next: the `now` check during an outage says which (link, Tailscale DNS, Pi-hole or internet). Quick test while
+   broken: turn Tailscale off and on (menu bar) instead of Wi-Fi; if that fixes it, it's the Tailscale route.
 
 Done today (details above): router move, Dragonwilds forwards, history clean-up, Odysseus auto-start, branch merge +
 `main` fast-forward, exit node.
