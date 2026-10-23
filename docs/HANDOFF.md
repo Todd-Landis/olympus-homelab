@@ -188,7 +188,13 @@ readable. No dark mode.
      connections keep flowing while new ones fail, which points at lookups. Suspects: Pi-hole rate-limiting the Mac
      (`dns.rateLimit`, default 1000 lookups/min per device: the phone is counted separately, so it keeps working), or
      the Mac's own lookup service (mDNSResponder) getting stuck.
-   Next: `grep -i rate-limit` in Pi-hole's FTL.log; `bash scripts/mac/wifi-drops.sh watch` (left running) now notices
+   - **Pi-hole ruled out by its own records** (`wifi-drops.sh pihole 12:45 01:14`): through both outages it answered
+     every lookup from the Mac within 50 ms, none failed, the Mac never had to ask again, other devices the same, and
+     the upstreams (8.8.8.8/8.8.4.4, the router for local names) were fast. No rate limiting in FTL.log (limit 1000).
+     So a backup Pi-hole wouldn't have helped (Todd asked about one). The Mac was streaming YouTube and playing
+     RuneScape at the time; it also keeps asking for `mask.icloud.com` (Private Relay, which Pi-hole blocks).
+   Next: what exactly stops working when it "cuts out" (which apps, what error, the Wi-Fi icon), and any network
+   filter/VPN apps on the Mac. `bash scripts/mac/wifi-drops.sh watch` (left running) notices
    websites failing and logs the checks at that moment to `~/wifi-watch.log` (the quick check names a rate limit or a
    stuck lookup service).
 
