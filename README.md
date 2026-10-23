@@ -4,7 +4,7 @@ Code and config for the home lab: three machines on Tailscale, one dashboard sui
 
 | Machine | What it is | Runs |
 |---|---|---|
-| **helios** | Always-on Ubuntu laptop (GTX 1060) | AI stack (`/opt/ai-stack`, not in this repo), **Olympus** dashboard, **Network Watch**, Dragonwilds server |
+| **helios** | Always-on Ubuntu laptop (GTX 1060) | AI stack (`/opt/ai-stack`, not in this repo), **Olympus** dashboard, **Network Watch**, **Shopping List** and **Groceries** (own repos), Dragonwilds server |
 | **horae** | Raspberry Pi 4 (Pi OS Lite), LAN 192.168.50.2 | Pi-hole (DNS + ad blocking), Home Assistant + Matter server, Homepage, Tailscale exit node |
 | **hephaestus** | Tower, dual boot (AMD GPU); a server only when in Ubuntu | Ollama coding models, Olympus agent |
 

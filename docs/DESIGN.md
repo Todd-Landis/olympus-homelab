@@ -233,6 +233,7 @@ errors.
 | --- | --- | --- |
 | **Olympus** (`olympus/hub/static`) | built here | Full system. Chat is the front door; Dashboard tab; host marks; the dock. |
 | **Network Watch** (`pihole-watch/app/static`) | built here | Full system. Underline tabs; activity bars in the chart palette; site drawer. |
+| **Groceries** (its own repo, `groceries`) | built here | Full system, phone first: the add bar is pinned at the bottom, aisle headers stick while scrolling, the app switcher folds into Search on phones. Copies `suite/` at deploy. |
 | **Horae** (Homepage, `horae/homepage`) | themed | `deploy.sh horae-theme` bundles `suite.css` + `overrides.css` into Homepage's `custom.css`, and `suite.js` + `mount.js` into `custom.js` (masthead, search). Only restyle Homepage's own classes in `overrides.css`. |
 | **Home Assistant** (`horae/homeassistant`) | themed | The **Olympus** theme (`themes/olympus.yaml`): marble background, white cards with the ring shadow, ink header and sidebar, Aegean toggles, status colours, chart palette, sun-gold "on" lights, Inter via `www/olympus/fonts.js`. Light only (no `modes:`). Install: `./deploy.sh horae-ha`, then `sudo bash ~/olympus-ha/ha-theme.sh` on horae. Dashboards: tile cards, no custom CSS cards. |
 | **Pi-hole** (admin) | built-in theme | `default-light` via `FTLCONF_webserver_interface_theme` in `horae/stack/docker-compose.yml`. Don't fork its UI. |

@@ -32,6 +32,10 @@ helios and horae, and the Odysseus share it served (see "Odysseus after a reboot
 - **helios** `~/olympus` (http://helios/, port 80 on the Tailscale IP): **chat is the main view** (see below), old overview = Dashboard tab; hub + agents on helios, horae and hephaestus (`:9101`, answer
   only `100.88.170.59`). Network card shows home-address usage; alert at 80%. Restart/stop/start and logs through the agents.
   No login on Olympus or Network.
+- **helios** `~/groceries` (http://helios:8098, repo `Todd-Landis/groceries`, deployed with that repo's `./deploy.sh`): the
+  household grocery list, phone first. Kroger API (Todd's developer app; keys in `~/groceries/kroger.env`, typed in by
+  Todd) gives each item its aisle/price at the chosen store; Ollama `puck` + a private SearXNG (`groceries-search`,
+  127.0.0.1:8099) handle unmatched items and recipes. Linked in Olympus (`config.json` service `groceries`, `suite.js` APPS).
 - **helios** Dragonwilds server (systemd `dragonwilds.service`, UDP 7777 game + 8888 beacon, forwarded on the router).
 - **helios** `~/bin/odysseus-autostart.sh` from synestri's crontab `@reboot` (see "Odysseus after a reboot").
 

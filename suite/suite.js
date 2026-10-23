@@ -4,6 +4,7 @@
     { id: "olympus", name: "Overview", url: "http://helios/", blurb: "All machines and services" },
     { id: "netwatch", name: "Network", url: "http://helios:8095/", blurb: "Browsing activity and blocking" },
     { id: "horae", name: "Horae", url: "http://horae/", blurb: "Pi dashboard: DNS and home" },
+    { id: "groceries", name: "Groceries", url: "http://helios:8098/", blurb: "Grocery list, sorted by aisle" },
   ];
   const LAT = 39.88, LON = -83.09; // Grove City, OH: drives the sun's real arc
 
