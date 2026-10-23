@@ -5,6 +5,7 @@
 #   bash scripts/mac/wifi-drops.sh [HH:MM] [days]      (default 15:45, 3 days; the window is 1 hour either side)
 #   bash scripts/mac/wifi-drops.sh now                 while it's broken, before turning Wi-Fi off: 10 s of checks
 #   bash scripts/mac/wifi-drops.sh watch               leave running: catches each outage by itself (~/wifi-watch.log)
+#   bash scripts/mac/wifi-drops.sh link HH:MM          the Mac's signal, beacons and traffic every 30 s around HH:MM today
 # Paste the whole output back. macOS ships bash 3.2: keep this script free of bash 4 features.
 set -u
 TS_IP=100.115.118.44   # this Mac's Tailscale address (docs/HANDOFF.md)
@@ -64,6 +65,36 @@ if [ "${1:-}" = now ]; then
   # Also saved to a file, since the internet may be down while this runs.
   OUT=~/wifi-check-$(date +%Y%m%d-%H%M%S).txt
   { quick_check; details; echo "Saved to $OUT"; } 2>&1 | tee "$OUT"
+  exit 0
+fi
+
+if [ "${1:-}" = link ]; then
+  # The Mac's own Wi-Fi measurements (airportd logs them every 5 s), in 30 s steps around a moment today. Needs nothing
+  # but the Mac, so it works with Tailscale off. Reading it: "router beacons" is how many of the router's ~10-a-second
+  # beacons the Mac heard (about 300 per 30 s is healthy). Beacons fine but "data frames" near 0 while you were trying
+  # to use it = the link was up but traffic stopped (a stall). Beacons dropping = the Mac stopped hearing the router.
+  AT=${2:?usage: bash $0 link HH:MM [minutes before] [minutes after]}
+  day=$(date +%F)
+  s=$(date -j -v-"${3:-8}"M -f "%F %H:%M" "$day $AT" "+%F %H:%M:%S"); e=$(date -j -v+"${4:-3}"M -f "%F %H:%M" "$day $AT" "+%F %H:%M:%S")
+  echo "== The Mac's Wi-Fi measurements, $s to ${e#* } (every 30 s: weakest signal, busiest air, slowest rates, totals)"
+  log show --style compact --start "$s" --end "$e" --predicate 'process == "airportd" AND eventMessage CONTAINS "LQM"' 2>/dev/null | awk '
+    function val(name,   r) { if (match($0, name "=-?[0-9.]+")) return substr($0, RSTART + length(name) + 1, RLENGTH - length(name) - 1) + 0; return "" }
+    function flush() {
+      if (cur != "") printf "  %s  signal %4s dBm  air busy %3d%%  up %4s Mbps  down %4s Mbps  router beacons %3d  data frames %5d\n", \
+        cur, rssi, cca, (tx < 0 ? "-" : int(tx / 1000)), (rx < 0 ? "-" : int(rx / 1000)), bcn, data
+    }
+    $2 ~ /^[0-9][0-9]:/ {
+      t = substr($2, 1, 8); b = substr(t, 1, 6) (substr(t, 7, 2) + 0 < 30 ? "00" : "30")
+      if (b != cur) { flush(); cur = b; rssi = 0; cca = 0; tx = -1; rx = -1; bcn = 0; data = 0 }
+      if (index($0, "] LQM: rssi=")) { v = val("rssi"); if (rssi == 0 || v < rssi) rssi = v; c = val("cca"); if (c > cca) cca = c }
+      else if (index($0, "WeightAvgLQM")) { v = val("txRate"); if (tx < 0 || v < tx) tx = v; v = val("rxRate"); if (rx < 0 || v < rx) rx = v }
+      else if (index($0, "rxBeaconMbss=")) { bcn += val("rxBeaconMbss"); data += val("rxDataUcastMbss") }
+    }
+    END { flush() }'
+  echo "== Anything the Wi-Fi driver or macOS flagged in that time"
+  log show --style compact --start "$s" --end "$e" --predicate 'process == "kernel" OR process == "airportd" OR process == "wifid"' 2>/dev/null \
+    | grep -i -E "stall|watchdog|beacon ?lo(ss|st)|bcn ?lo|tx ?fail|reset|recover|link ?(down|lost)|disassoc|deauth|roam(ing)? (start|scan)|poorlink|badrssi" \
+    | grep -v -E "unsupported (get|set) ioctl|NSEntityDescription|RoamMO" | cut -c1-200 | head -40
   exit 0
 fi
 
