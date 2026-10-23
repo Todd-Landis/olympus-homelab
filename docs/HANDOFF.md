@@ -182,9 +182,15 @@ readable. No dark mode.
      a "poor link" session that started with BadRSSI, and has counted 10 Wi-Fi off/on toggles from Control Center.
    - Todd's iPhone, on the same 5 GHz network, keeps working during the Mac's outages: it's the Mac (or how the
      router's 5 GHz settings suit it), not the router as a whole.
-   Next: `bash scripts/mac/wifi-drops.sh watch` (left running) logs each outage with the checks at that moment to
-   `~/wifi-watch.log`, including whether the Mac could still reach the router; then the router's 5 GHz settings for
-   5016Shoreside or the Mac's side.
+   - **The Wi-Fi link was healthy through the 10-23 12:45 outage** (`wifi-drops.sh link 12:45`): signal -58 to -65
+     dBm, the router's beacons steady, and ~9,500 data frames per 30 s still arriving until Todd switched Wi-Fi off.
+     Every disconnect the router logged was Todd's own toggle (or the lid). So the break is above Wi-Fi: existing
+     connections keep flowing while new ones fail, which points at lookups. Suspects: Pi-hole rate-limiting the Mac
+     (`dns.rateLimit`, default 1000 lookups/min per device: the phone is counted separately, so it keeps working), or
+     the Mac's own lookup service (mDNSResponder) getting stuck.
+   Next: `grep -i rate-limit` in Pi-hole's FTL.log; `bash scripts/mac/wifi-drops.sh watch` (left running) now notices
+   websites failing and logs the checks at that moment to `~/wifi-watch.log` (the quick check names a rate limit or a
+   stuck lookup service).
 
 Done today (details above): router move, Dragonwilds forwards, history clean-up, Odysseus auto-start, branch merge +
 `main` fast-forward, exit node.

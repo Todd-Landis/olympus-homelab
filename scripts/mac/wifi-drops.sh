@@ -18,32 +18,41 @@ quick_check() {  # which layer is stuck? Each check uses only what it names, wit
   ok() { printf '  %-4s %s\n' "$1" "$2"; }
   run() {  # run "label" command...  ->  OK/FAIL plus the first line of output
     local label=$1; shift
-    local out; out=$("$@" 2>&1 | head -1)
-    if [ -n "$out" ] && ! printf '%s' "$out" | grep -q -i -E "timed out|timeout|no reply|no servers|unreachable|error|failed| 0 packets received|100.0% packet loss|^000"; then
+    local out; out=$("$@" 2>&1 | head -1); LAST=$out
+    if [ -n "$out" ] && ! printf '%s' "$out" | grep -q -i -E "timed out|timeout|no reply|no answer|no servers|unreachable|error|failed|refused|servfail| 0 packets received|100.0% packet loss|^000"; then
       ok OK "$label: $out"; return 0
     fi
     ok FAIL "$label: ${out:-no answer}"; return 1
   }
   run "1 router over Wi-Fi (ping 192.168.50.1)" sh -c 'ping -c 2 -t 3 192.168.50.1 | grep -E "packets"'; R1=$?
   run "2 horae over Wi-Fi (ping 192.168.50.2)" sh -c 'ping -c 2 -t 3 192.168.50.2 | grep -E "packets"'; R2=$?
-  run "3 Pi-hole straight over Wi-Fi (apple.com)" dig +time=2 +tries=1 +short @192.168.50.2 apple.com; R3=$?
-  run "4 Pi-hole through Tailscale, the Mac's normal way" dig +time=2 +tries=1 +short @100.100.100.100 apple.com; R4=$?
+  # dig's status line: NOERROR is an answer; REFUSED from Pi-hole means it's rate-limiting this Mac
+  run "3 Pi-hole straight over Wi-Fi (wikipedia.org)" sh -c 'dig +time=2 +tries=1 @192.168.50.2 wikipedia.org | grep -o -E "status: [A-Z]+|timed out" | head -1'; R3=$?; P3=$LAST
+  run "4 Pi-hole through Tailscale (wikipedia.org)" sh -c 'dig +time=2 +tries=1 @100.100.100.100 wikipedia.org | grep -o -E "status: [A-Z]+|timed out" | head -1'; R4=$?
   run "5 internet with no lookup (https://1.1.1.1)" curl -sS -o /dev/null --max-time 4 -w '%{http_code}' https://1.1.1.1; R5=$?
-  run "6 a website the normal way (https://www.apple.com)" curl -sS -o /dev/null --max-time 6 -w '%{http_code}' https://www.apple.com; R6=$?
-  [ -x "$TS" ] && run "7 Tailscale to horae" "$TS" ping -c 2 --timeout 3s horae
+  run "6 a lookup the Mac's normal way (its own lookup service)" sh -c 'dscacheutil -q host -a name www.wikipedia.org | grep -m 1 ip_address || echo "no answer"'; R6=$?
+  run "7 a website the normal way (https://www.wikipedia.org)" curl -sS -o /dev/null -I --max-time 6 -w '%{http_code}' https://www.wikipedia.org; R7=$?
+  [ -x "$TS" ] && run "8 Tailscale to horae" "$TS" ping -c 2 --timeout 3s horae
   [ -x "$TS" ] && "$TS" status 2>/dev/null | grep -E "^100\.123\.23\.100" | sed 's/^/       path: /'
   echo "-- what that means"
+  TSDNS=0; scutil --dns | grep -q "100.100.100.100" && TSDNS=1
   if [ "$R1" -ne 0 ]; then
     echo "  The Mac says it's on Wi-Fi but can't even reach the router: the Wi-Fi link itself is stuck. That's the Mac's"
     echo "  Wi-Fi (or the router's radio), not Pi-hole or Tailscale."
-  elif [ "$R4" -ne 0 ] && [ "$R3" -eq 0 ]; then
+  elif printf '%s' "$P3" | grep -q REFUSED; then
+    echo "  Pi-hole is refusing this Mac's lookups: it's rate-limiting it (too many lookups in a minute). The fix is on"
+    echo "  Pi-hole's side (its limit), or finding what on the Mac is looking things up so often."
+  elif [ "$R4" -ne 0 ] && [ "$R3" -eq 0 ] && [ "$TSDNS" -eq 1 ]; then
     echo "  Wi-Fi and Pi-hole are fine; lookups that go through Tailscale fail. Tailscale's route to horae is the cause."
-  elif [ "$R3" -ne 0 ] && [ "$R4" -ne 0 ]; then
+  elif [ "$R3" -ne 0 ] && { [ "$R4" -ne 0 ] || [ "$TSDNS" -eq 0 ]; }; then
     echo "  Pi-hole isn't answering at all (horae, or Pi-hole on it)."
   elif [ "$R5" -ne 0 ]; then
     echo "  Lookups work but the internet doesn't: the router's internet line (or the modem)."
   elif [ "$R6" -ne 0 ]; then
-    echo "  Everything checked works except a normal website: send this to Claude as is."
+    echo "  Pi-hole answers when asked directly, but the Mac's own lookup service doesn't: it's stuck. This resets it"
+    echo "  without touching Wi-Fi:  sudo killall -HUP mDNSResponder"
+  elif [ "$R7" -ne 0 ]; then
+    echo "  Lookups work but websites don't open: send this to Claude as is."
   else
     echo "  Everything works right now. If it was broken a moment ago, it recovered on its own."
   fi
@@ -56,9 +65,9 @@ details() {  # what the Mac itself says about the link while it's stuck
   system_profiler SPAirPortDataType 2>/dev/null | awk '/Current Network Information:/ { f = 1; n = 0 } f && n < 14 { print; n++ }' \
     | grep -E "Channel|Signal / Noise|Transmit Rate|PHY Mode" | head -4 | sed 's/^ */  /'
 }
-healthy() {  # router, Pi-hole straight over Wi-Fi, and the internet all answer
-  ping -c 1 -t 2 192.168.50.1 >/dev/null 2>&1 && dig +time=2 +tries=1 +short @192.168.50.2 apple.com 2>/dev/null | grep -q '^[0-9]' \
-    && ping -c 1 -t 2 1.1.1.1 >/dev/null 2>&1
+healthy() {  # what you'd notice: the router answers and a website opens the normal way (either of two)
+  ping -c 1 -t 2 192.168.50.1 >/dev/null 2>&1 || return 1
+  curl -sS -o /dev/null -I --max-time 5 https://www.wikipedia.org 2>/dev/null || curl -sS -o /dev/null -I --max-time 5 https://www.apple.com 2>/dev/null
 }
 
 if [ "${1:-}" = now ]; then
@@ -99,15 +108,15 @@ if [ "${1:-}" = link ]; then
 fi
 
 if [ "${1:-}" = watch ]; then
-  # Checks every 5 s; two failures in a row = an outage: runs the full check at that moment and logs it, then logs
-  # when it comes back. A gap of more than 30 s between checks means the Mac slept, which isn't an outage.
+  # Checks every 10 s; two failures in a row = an outage: runs the full check at that moment and logs it, then logs
+  # when it comes back. A gap of more than 40 s between checks means the Mac slept, which isn't an outage.
   LOG=~/wifi-watch.log
-  echo "Watching this Mac's connection every 5 s. Leave this window open; Ctrl-C stops it. Outages go to $LOG"
+  echo "Watching this Mac's connection every 10 s. Leave this window open; Ctrl-C stops it. Outages go to $LOG"
   echo "== watch started $(date '+%F %H:%M:%S')" >> "$LOG"
   bad=0; down=""; down_s=0; last=$(date +%s)
   while :; do
     now_s=$(date +%s)
-    if [ $((now_s - last)) -gt 30 ]; then bad=0; [ -n "$down" ] && echo "$(date '+%F %H:%M:%S') (the Mac slept)" | tee -a "$LOG"; down=""; fi
+    if [ $((now_s - last)) -gt 40 ]; then bad=0; [ -n "$down" ] && echo "$(date '+%F %H:%M:%S') (the Mac slept)" | tee -a "$LOG"; down=""; fi
     if healthy; then
       if [ -n "$down" ]; then
         echo "$(date '+%F %H:%M:%S') back after $((now_s - down_s)) s ($(ifconfig "$IF" 2>/dev/null | grep -q 'status: active' && echo 'Wi-Fi on' || echo 'Wi-Fi off'))" | tee -a "$LOG"
@@ -123,7 +132,7 @@ if [ "${1:-}" = watch ]; then
       fi
     fi
     last=$(date +%s)   # after the checks, which can take 30 s during an outage, so they don't look like sleep
-    sleep 5
+    sleep 10
   done
 fi
 
