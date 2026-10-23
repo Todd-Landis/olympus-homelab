@@ -180,8 +180,11 @@ readable. No dark mode.
    - **2026-10-23 ~12:45 it happened with Tailscale switched off** (Todd confirmed), fixed again only by toggling Wi-Fi:
      so Tailscale isn't the cause; its route flipping on 10-23 01:15 was a symptom of the link stalling. macOS logged
      a "poor link" session that started with BadRSSI, and has counted 10 Wi-Fi off/on toggles from Control Center.
-   Next: the `now` check during an outage (before toggling) says whether the Mac can still reach the router; then
-   the router's 5 GHz settings for 5016Shoreside and the Mac's side.
+   - Todd's iPhone, on the same 5 GHz network, keeps working during the Mac's outages: it's the Mac (or how the
+     router's 5 GHz settings suit it), not the router as a whole.
+   Next: `bash scripts/mac/wifi-drops.sh watch` (left running) logs each outage with the checks at that moment to
+   `~/wifi-watch.log`, including whether the Mac could still reach the router; then the router's 5 GHz settings for
+   5016Shoreside or the Mac's side.
 
 Done today (details above): router move, Dragonwilds forwards, history clean-up, Odysseus auto-start, branch merge +
 `main` fast-forward, exit node.
