@@ -6,6 +6,7 @@
 #   bash scripts/mac/wifi-drops.sh now                 while it's broken, before turning Wi-Fi off: 10 s of checks
 #   bash scripts/mac/wifi-drops.sh watch               leave running: catches each outage by itself (~/wifi-watch.log)
 #   bash scripts/mac/wifi-drops.sh link HH:MM          the Mac's signal, beacons and traffic every 30 s around HH:MM today
+#   bash scripts/mac/wifi-drops.sh pihole HH:MM ...    Pi-hole's answers to this Mac and everyone else, per minute
 # Paste the whole output back. macOS ships bash 3.2: keep this script free of bash 4 features.
 set -u
 TS_IP=100.115.118.44   # this Mac's Tailscale address (docs/HANDOFF.md)
@@ -104,6 +105,40 @@ if [ "${1:-}" = link ]; then
   log show --style compact --start "$s" --end "$e" --predicate 'process == "kernel" OR process == "airportd" OR process == "wifid"' 2>/dev/null \
     | grep -i -E "stall|watchdog|beacon ?lo(ss|st)|bcn ?lo|tx ?fail|reset|recover|link ?(down|lost)|disassoc|deauth|roam(ing)? (start|scan)|poorlink|badrssi" \
     | grep -v -E "unsupported (get|set) ioctl|NSEntityDescription|RoamMO" | cut -c1-200 | head -40
+  exit 0
+fi
+
+if [ "${1:-}" = pihole ]; then
+  # Pi-hole's own record of every answer, minute by minute around each time given (today): did it answer this Mac,
+  # how fast, did the Mac have to ask again, and was it the same for every other device? Read-only.
+  shift; [ $# -ge 1 ] || { echo "usage: bash $0 pihole HH:MM [HH:MM ...]"; exit 1; }
+  LAN_IP=$(ipconfig getifaddr "$IF" 2>/dev/null || echo 192.168.50.165)
+  for AT in "$@"; do
+    day=$(date +%F)
+    s=$(date -j -v-10M -f "%F %H:%M" "$day $AT" "+%F %H:%M:%S"); e=$(date -j -v+4M -f "%F %H:%M" "$day $AT" "+%F %H:%M:%S")
+    echo; echo "== Pi-hole's answers, $s to ${e#* } (this Mac = $LAN_IP over Wi-Fi or $TS_IP through Tailscale)"
+    ssh -o ConnectTimeout=8 -o BatchMode=yes horae "docker exec -i pihole pihole-FTL sqlite3 -readonly /etc/pihole/pihole-FTL.db" <<SQL || echo "Couldn't reach horae over SSH."
+.headers on
+.mode column
+CREATE TEMP VIEW w AS
+  SELECT timestamp t, status, reply_type rt, reply_time rtime, domain, forward,
+         client IN ('$LAN_IP', '$TS_IP') AS mac,
+         reply_type IN (0, 7, 8, 12) AS failed,      -- no reply, SERVFAIL, REFUSED, dropped
+         status IN (12, 13) AS retried               -- the device asked the same thing again before an answer came
+  FROM queries
+  WHERE timestamp >= CAST(strftime('%s', '$s', 'utc') AS INTEGER) AND timestamp < CAST(strftime('%s', '$e', 'utc') AS INTEGER);
+SELECT strftime('%H:%M', t, 'unixepoch', 'localtime') AS minute,
+       SUM(mac) AS mac_asked, SUM(mac AND failed) AS mac_failed, SUM(mac AND retried) AS mac_asked_again,
+       CAST(MAX(CASE WHEN mac THEN rtime END) * 1000 AS INTEGER) AS mac_slowest_ms,
+       SUM(NOT mac) AS others_asked, SUM(NOT mac AND failed) AS others_failed,
+       CAST(MAX(CASE WHEN NOT mac THEN rtime END) * 1000 AS INTEGER) AS others_slowest_ms
+FROM w GROUP BY minute ORDER BY minute;
+SELECT 'what this Mac asked most' AS section, domain, COUNT(*) AS times FROM w WHERE mac GROUP BY domain ORDER BY times DESC LIMIT 8;
+SELECT 'upstream' AS section, forward, COUNT(*) AS answers, CAST(AVG(rtime) * 1000 AS INTEGER) AS avg_ms,
+       CAST(MAX(rtime) * 1000 AS INTEGER) AS slowest_ms, SUM(failed) AS failed
+FROM w WHERE status = 2 GROUP BY forward;
+SQL
+  done
   exit 0
 fi
 
